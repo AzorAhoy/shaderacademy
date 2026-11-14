@@ -1,0 +1,14 @@
+[
+  {
+    "title": "$:/SiteTitle",
+    "text": "Shader Academy"
+  },
+  {
+    "title": "$:/SiteSubtitle",
+    "text": "A searchable notebook for learning shaders and procedural geometry"
+  },
+  {
+    "title": "$:/DefaultTiddlers",
+    "text": "[[Welcome]]"
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "description": "Shader Academy study notebook",
+  "plugins": [
+    "tiddlywiki/markdown",
+    "tiddlywiki/highlight",
+    "tiddlywiki/tiddlyweb",
+    "tiddlywiki/filesystem"
+  ],
+  "themes": [
+    "tiddlywiki/vanilla",
+    "tiddlywiki/snowwhite"
+  ],
+  "build": {
+    "index": [
+      "--rendertiddler",
+      "$:/core/save/all",
+      "index.html",
+      "text/plain"
+    ]
+  }
+}

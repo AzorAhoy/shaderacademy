@@ -1,0 +1,40 @@
+title: Welcome
+tags: Navigation
+type: text/vnd.tiddlywiki
+
+! Shader Academy Notebook
+
+Explore the project's explanations, glossary, reusable code snippets, and shader source. Use the sidebar search to find terms or code; click a topic below to open it alongside your notes.
+
+!! Start here
+
+* [[Glossary|GLOSSARY.md]] - definitions, formulas, and winding diagrams.
+* [[Reusable code and GLSL functions|CODE_SNIPPETS.md]] - examples, usage guides, and pitfalls.
+* [[Project overview|README.md]]
+* [[Notebook editing and publishing|Notebook Guide]]
+
+!! Learning paths
+
+* [[G-buffer examples|G-Buffer Index]] - depth, normals, world-position reconstruction, and deferred lighting.
+* [[Material examples|Materials Index]] - Fresnel reflection, PBR, and parallax occlusion mapping.
+* [[Procedural geometry|Procedural Mesh Index]] - mesh construction and instanced vertex transforms.
+
+!! Guides
+
+<ul>
+<$list filter="[tag[Guide]sort[title]]">
+<li><$link to=<<currentTiddler>>><$view field="title"/></$link></li>
+</$list>
+</ul>
+
+!! Study notes
+
+Create a tiddler in the local notebook, tag it ''Study Note'', and link it to an example with TiddlyWiki links such as `[[g_buffer/gbuffer_5/frag.glsl]]`.
+
+<ul>
+<$list filter="[tag[Study Note]sort[title]]">
+<li><$link to=<<currentTiddler>>><$view field="title"/></$link></li>
+</$list>
+</ul>
+
+The GitHub Pages copy is a static publication: browser edits there do not update the repository. See [[Notebook Guide]] for persistent editing.

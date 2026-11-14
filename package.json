@@ -1,0 +1,18 @@
+{
+  "name": "shaderacademy-notebook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A TiddlyWiki study notebook built from Shader Academy guides and source code.",
+  "scripts": {
+    "notebook:import": "node scripts/import-notebook.cjs",
+    "notebook:test": "node --test scripts/import-notebook.test.cjs",
+    "notebook:build": "npm run notebook:import && tiddlywiki notebook --output dist --deletetiddlers \"[[$:/plugins/tiddlywiki/tiddlyweb]] [[$:/plugins/tiddlywiki/filesystem]]\" --build index",
+    "notebook:serve": "npm run notebook:import && tiddlywiki notebook --listen host=127.0.0.1 port=8080"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "tiddlywiki": "5.4.1"
+  }
+}

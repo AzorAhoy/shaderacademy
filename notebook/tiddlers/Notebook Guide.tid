@@ -1,0 +1,29 @@
+title: Notebook Guide
+tags: Navigation
+type: text/vnd.tiddlywiki
+
+! Editing and publishing
+
+!! Local editing
+
+From the repository root, install dependencies with `npm ci`, then run `npm run notebook:serve`. Open http://127.0.0.1:8080/ to create and edit study-note tiddlers. The server is bound to localhost.
+
+Hand-authored notes are saved in `notebook/tiddlers/`. Commit those files to preserve and share your notes. Stop the server before rebuilding or regenerating imported content.
+
+!! Imported project content
+
+Run `npm run notebook:import` to refresh the guides and code. The generated bundle is `notebook/tiddlers/generated-project.json`; it is ignored by Git and rebuilt from repository files.
+
+Edit imported guides and source in their original repository files, not in the wiki editor: imported tiddler edits are overwritten by the next import. Use new, uniquely titled tiddlers for annotations, and tag them ''Study Note''.
+
+!! Static publishing
+
+Run `npm run notebook:build` to create `dist/index.html`, a self-contained TiddlyWiki publication. The GitHub Actions workflow builds and deploys this file to GitHub Pages.
+
+In the repository's Settings -> Pages, select ''GitHub Actions'' as the build source. Push your changes to the default branch, or run the workflow manually. The Pages URL is shown by the deployment workflow.
+
+No repository token is embedded in the notebook. Editing the Pages copy does not write back to GitHub; use the local editor or repository commits for persistent updates.
+
+!! Navigation
+
+Imported tiddler titles are their repository-relative paths. Relative links between imported Markdown documents are converted into notebook links. Section fragments open the containing tiddler rather than scrolling to a particular heading. Links to files that are not imported and external websites are left unchanged.
