@@ -54,6 +54,19 @@ The normalized height parameter `t` runs from 0 at the bottom to 1 at the top. T
 r(t) = 1.4 + 2.4 sin(0.9 pi t) + 0.6 sin(3 pi t)
 ```
 
+### Visual demonstration
+
+![Plot of the radius function, its broad sine component and baseline, alongside the mirrored vase side outline](./radius-profile.svg)
+
+[Open the full-size illustration](./radius-profile.svg).
+
+Read the illustration in two steps:
+
+1. **Left plot:** Choose a height `t` on the horizontal axis and read the orange curve's radius. The dotted gray line is the baseline `1.4`; the dashed blue curve adds the broad sine term; the orange curve also includes the smaller sine ripple. At a given `t`, the orange-to-blue difference is exactly `0.6 sin(3 pi t)`.
+2. **Right outline:** Place that same `t` vertically using `y = 11(t - 0.5)`, and extend the radius to both sides of the Y axis. Rotating the profile around that axis produces the mesh's surface of revolution.
+
+The upper bulge is wider than the middle-height ring: a dense numerical sample estimates the largest radius as `3.8725` near `t = 0.7582`. The drawing uses sampled curves and separate display scales for height and radius; it illustrates the profile, not a perspective render or a physically scaled section. The shaded area does not imply caps, an inner wall, or a solid volume in the actual mesh.
+
 - `1.4` establishes a baseline radius.
 - The first sine term gives the broad body its rounded shape.
 - The smaller, faster sine term adds variation to the profile.
