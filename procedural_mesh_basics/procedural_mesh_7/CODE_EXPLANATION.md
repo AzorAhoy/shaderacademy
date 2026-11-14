@@ -8,6 +8,28 @@ This folder contains three parts of a simple textured procedural-mesh example:
 
 The shader inputs and uniforms must be connected by the renderer. The TypeScript file builds mesh arrays, but does not show the renderer, texture loading, or GPU buffer-binding code.
 
+### Reading order
+
+1. Start with `createQuad`: learn how one face stores its positions, normals, indices, and UVs.
+2. Read `appendQuad`: see how independent faces become one indexed mesh.
+3. Read `createMesh`: identify the six faces of the cube.
+4. Follow `vert.glsl`: track each vertex from local space to clip space.
+5. Finish with `frag.glsl`: see how interpolated UVs select the displayed texture color.
+
+```text
+scene.ts                Renderer                 GPU
+quad arrays ---------> vertex/index buffers ---> vert.glsl
+instance matrices ---> per-instance attributes       |
+camera matrices -----> uniforms                      v
+                                               rasterization
+texture -------------> sampler binding               |
+                                                     v
+                                                frag.glsl
+                                                     |
+                                                     v
+                                                output color
+```
+
 ## 1. Building a quad in `scene.ts`
 
 ### Step 1: Declare the reusable quad helper
@@ -24,6 +46,8 @@ function createQuad(
 
 The function returns arrays of vertex positions, triangle indices, normals, and UV coordinates. It does not create GPU buffers itself.
 
+The TypeScript tuple `[number, number, number]` requires three normal components at type-check time. In contrast, `number[]` does not enforce a particular length. The helper assumes `corners` contains exactly 12 numbers in perimeter order, describing four nondegenerate, coplanar points; it does not validate that assumption at runtime.
+
 ### Step 2: Copy the positions and define the front-facing triangles
 
 ```ts
@@ -37,6 +61,35 @@ The corners are copied so the returned vertex array is separate from the input a
 - Triangle two uses vertices `0, 2, 3`.
 
 The triangles share the diagonal from corner 0 to corner 2. This is indexed geometry: indices refer to entries in the quad's vertex arrays rather than duplicating positions for every triangle.
+
+For the first face, viewed from its outward `+Z` side, the positions and UVs line up as follows:
+
+```text
+  +Y
+  ^
+  |
+  3 ---------------- 2
+  |                / |
+  |              /   |
+  |            /     |
+  |          /       |
+  |        /         |
+  |      /           |
+  |    /             |
+  |  /               |
+  0 ---------------- 1 ----> +X
+
+triangle A: 0 -> 1 -> 2
+triangle B: 0 -> 2 -> 3
+shared diagonal: 0 -- 2
+```
+
+The vertex index is not an offset into the raw number array. Index `2` means the third vertex, whose position occupies entries `6`, `7`, and `8`:
+
+```text
+position of vertex i = (vertices[3*i], vertices[3*i+1], vertices[3*i+2])
+UV of vertex i       = (uvs[2*i], uvs[2*i+1])
+```
 
 ### Step 3: Assign the face normal to each corner
 
@@ -66,6 +119,15 @@ Each vertex receives a two-component texture coordinate. The four corners cover 
 
 The source has a TODO comment about adding UVs for each quad. Currently, this helper uses the same UV pattern for every face.
 
+| Vertex | Position on the pictured face | UV |
+| --- | --- | --- |
+| 0 | Lower-left | `(0, 0)` |
+| 1 | Lower-right | `(1, 0)` |
+| 2 | Upper-right | `(1, 1)` |
+| 3 | Upper-left | `(0, 1)` |
+
+These corner labels apply to the pictured positive-Z face. Other faces have different local orientations. Each face covers the whole texture independently; the six faces are not laid out as a single cube texture atlas.
+
 ### Step 5: Optionally add reverse-winding triangles
 
 ```ts
@@ -77,6 +139,17 @@ if (doubleSided) {
 These are the same two triangles with their vertex order reversed. Triangle winding determines which side is considered the front face when face culling is enabled. Adding both windings makes triangles available from either side under ordinary back-face culling.
 
 This does not create new vertices or reverse the normals; it only adds more indices. With the default `true`, one quad has 12 indices total, representing four triangles (two for each winding direction).
+
+The two index sets are:
+
+```text
+outward winding:  (0, 1, 2), (0, 2, 3)
+reversed winding: (0, 2, 1), (0, 3, 2)
+```
+
+For the positive-Z face, the first triangle's edges are `(4, 0, 0)` and `(4, 4, 0)`. Their cross product is `(0, 0, 16)`, pointing outward along `+Z`. Swapping their order reverses that direction.
+
+This winding-derived orientation controls face classification; the separately supplied `normal` attribute controls shading. Reversed indices do not automatically make that attribute point inward. With culling disabled, both copies are submitted, which may produce unnecessary work or blending artifacts depending on depth and blend settings.
 
 ### Step 6: Return the quad data
 
@@ -114,6 +187,19 @@ quad.indices.forEach((index) => target.indices.push(index + vertexOffset));
 
 Each index in a quad is relative to that quad, where its vertices are numbered 0 through 3. Adding `vertexOffset` changes it to an index into the combined mesh. Without the offset, later quads would incorrectly refer to the first quad's vertices.
 
+**Worked example:** After appending the first face, `target.vertices.length` is 12. The second face therefore starts at vertex `12 / 3 = 4`:
+
+```text
+second face's local indices:  0, 1, 2, 0, 2, 3
+add vertexOffset = 4:         4, 5, 6, 4, 6, 7
+
+first face uses vertices:    0..3
+second face uses vertices:   4..7
+third face uses vertices:    8..11
+```
+
+The offset is measured in vertices, not triangles or position-array elements. This is why the function divides the position-array length by three before offsetting indices.
+
 ## 3. Constructing the cube
 
 ### Step 1: Initialize the mesh data
@@ -130,7 +216,7 @@ const mesh: ProceduralMeshData = {
 
 The mesh starts with empty arrays for positions, indices, normals, UVs, and colors. `ProceduralMeshData` is assumed to be defined elsewhere; its definition is not included in this folder.
 
-The `colors` array remains empty in this function. That is worth noting because the vertex shader declares a `color` input. The renderer must provide a suitable color attribute/default, or the mesh setup must be extended to populate colors for that shader input.
+The `colors` array remains empty in this function. The vertex shader declares a `color` input, but its derived material-ID output is not consumed by the current fragment shader. A shader compiler may therefore optimize this input away. If a different fragment shader uses that ID, the renderer must provide the active color attribute or a suitable constant attribute value.
 
 ### Step 2: Choose the cube's half-size
 
@@ -154,6 +240,18 @@ Each `appendQuad(mesh, createQuad([...], normal))` call describes one cube face.
 Each face has its own four vertices, so the completed cube has 24 vertex entries rather than sharing the eight geometric corner positions. This duplication allows each face to use a distinct normal and its own complete UV square.
 
 Because `doubleSided` defaults to `true`, each face contributes 12 indices. Six faces therefore contribute 72 indices, or 24 indexed triangles.
+
+### Resulting array sizes
+
+| Array | Numbers per vertex/face | Completed cube |
+| --- | --- | --- |
+| `vertices` | 3 per vertex | `24 * 3 = 72` numbers |
+| `normals` | 3 per vertex | `24 * 3 = 72` numbers |
+| `uvs` | 2 per vertex | `24 * 2 = 48` numbers |
+| `indices` | 12 per double-sided face | `6 * 12 = 72` indices |
+| `colors` | Not populated | 0 numbers |
+
+There are 12 distinct geometric triangles covering the cube surface, submitted in both winding directions for 24 indexed triangles. If all faces were created with `doubleSided = false`, the position, normal, and UV arrays would stay the same, but there would be 36 indices and 12 submitted triangles.
 
 ### Step 4: Return the completed mesh
 
@@ -190,7 +288,7 @@ These are per-vertex inputs supplied by mesh buffers:
 - `uv`: texture coordinate.
 - `color`: per-vertex color; this shader uses its red component as a material identifier.
 
-As noted above, `scene.ts` does not fill the `colors` array. The rendering setup must account for that input.
+As noted above, `scene.ts` does not fill the `colors` array. The rendering setup must account for that input if it remains active in the linked shader program.
 
 ### Step 3: Declare the per-instance transform and identifiers
 
@@ -242,13 +340,21 @@ vPosition = worldPos.xyz;
 
 The four input vectors are assembled as the columns of a matrix. The local position is made homogeneous by adding `w = 1`, then transformed into world space. Its `xyz` components are passed on as `vPosition`.
 
+**Formula:**
+
+```text
+p_world = M_instance * (x_local, y_local, z_local, 1)
+```
+
+For example, a translation-only instance matrix moving the cube by `(3, 0, 0)` sends the local corner `(2, -2, 2)` to world position `(5, -2, 2)`. A different instance can use the same mesh arrays with a different transform.
+
 ### Step 7: Transform the normal
 
 ```glsl
 vNormal = normalize(mat3(instanceWorld) * normal);
 ```
 
-The instance matrix's upper-left 3×3 portion transforms the normal direction, then `normalize` makes it unit length. This is suitable for rotations and uniform scales. For non-uniform scaling or shear, a normal matrix based on the inverse transpose is generally needed to preserve correct perpendicular directions. The current fragment shader does not use `vNormal`.
+The instance matrix's upper-left 3x3 portion transforms the normal direction, then `normalize` makes it unit length. This is suitable for rotations and uniform scales. For non-uniform scaling or shear, a normal matrix based on the inverse transpose is generally needed to preserve correct perpendicular directions. The current fragment shader does not use `vNormal`.
 
 ### Step 8: Forward UVs and per-instance data
 
@@ -269,7 +375,18 @@ gl_Position = projection * view * worldPos;
 
 The world-space position is transformed by the camera view matrix and then the projection matrix. `gl_Position` is the required clip-space output used by the graphics pipeline to clip, rasterize, and place the vertex on screen.
 
+**Full transform chain:**
+
+```text
+p_clip = P * V * M_instance * p_local
+p_ndc  = p_clip.xyz / p_clip.w
+```
+
+The rightmost matrix acts first. The GPU performs clipping and the perspective divide after the vertex shader; this shader should output `p_clip`, not manually divide it before assigning `gl_Position`.
+
 ## 5. Sampling the texture in `frag.glsl`
+
+Like the vertex shader, this file begins with `#version 300 es` and `precision highp float`. It targets GLSL ES 3.00 and sets the default floating-point precision for its calculations.
 
 ### Step 1: Declare the fragment input and output
 
@@ -296,6 +413,18 @@ fragColor = texture(u_texture, v_uv);
 
 `texture` looks up the texture at the current interpolated UV coordinate and returns its RGBA value. That value is written directly to the screen/render target. No lighting, tint, material-ID selection, or other color calculation is performed in this fragment shader.
 
+### How interpolation fills the face
+
+The mesh only assigns UVs at the four corners, but the rasterizer supplies UVs for every fragment inside each triangle. Under perspective projection, the default interpolation is perspective-correct:
+
+```text
+uv_fragment = sum(lambda_i * uv_i / w_i) / sum(lambda_i / w_i)
+```
+
+Here `lambda_i` are screen-space barycentric weights for the triangle's three vertices, and `w_i` are their clip-space `w` values. If all three `w_i` are equal, the formula becomes an ordinary weighted average. For a face viewed straight on with equal `w`, its center maps to approximately `(0.5, 0.5)`, the texture's center.
+
+The sampled alpha is preserved by `fragColor`. Whether it produces transparency depends on the renderer's blending setup; returning an alpha value alone does not enable blending.
+
 ## 6. End-to-end data flow
 
 1. `createMesh` calls `createQuad` six times to describe the cube's faces.
@@ -307,3 +436,16 @@ fragColor = texture(u_texture, v_uv);
 7. `frag.glsl` samples `u_texture` at each fragment's UV and writes the sampled RGBA color.
 
 The folder does not include the renderer or texture setup, so attribute bindings, instance configuration, texture selection, and buffer upload are external to these three files.
+
+## 7. Practical setup and troubleshooting checklist
+
+1. **Geometry:** Supply four valid corners per quad and keep positions, normals, and UVs aligned by vertex index.
+2. **Indices:** Apply the existing vertex offset whenever another face is appended.
+3. **Instancing:** Bind all four world-matrix columns in GLSL column order and set their attribute divisors for per-instance data.
+4. **Camera:** Supply compatible view and projection matrices.
+5. **Texture:** Load and bind the texture, assign its texture unit to `u_texture`, and configure the desired filtering and wrapping.
+6. **Faces:** Check front-face/culling settings if faces disappear when viewed from one side.
+7. **Appearance:** The current material is texture-only. Changing normals or adding lights will not change its color until the fragment shader performs lighting.
+8. **Extra attributes:** Normal, position, material ID, and instance identifiers forwarded by the vertex shader are unused by this fragment shader and may be optimized away.
+
+The TypeScript code's role is data construction, the vertex shader's role is transformation and attribute forwarding, and the fragment shader's role is texture lookup. Keeping these responsibilities separate makes it easier to determine which stage to inspect when the rendered cube looks incorrect.
