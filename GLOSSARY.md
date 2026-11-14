@@ -1,0 +1,245 @@
+# Shader Academy Project Glossary
+
+This glossary defines graphics, shader, material, and geometry terms used in the project's GLSL shaders, TypeScript mesh code, and shader explanations. Entries include links to representative examples.
+
+## A
+
+### Albedo
+The base color of a surface before lighting is applied. In a metallic/roughness material, it describes the diffuse color of a non-metal and the characteristic reflected color of a metal. The deferred-lighting shader reads albedo from a G-buffer texture ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)); the PBR shader also defines it as a material property ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Aliasing
+Visible jaggedness, flickering, or shimmering caused when a continuous image detail is sampled too coarsely. The parallax shader uses explicit texture gradients when sampling its shifted UVs to help maintain suitable texture filtering ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### Alpha
+The fourth component of an RGBA color, often used for opacity or as a marker. The G-buffer lighting pass treats zero albedo alpha as an empty pixel ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Attenuation
+Reduction in a light's contribution with distance. In the G-buffer lighting shader, the point-light contribution is scaled by `1.0 / (1.0 + 0.03 * dist * dist)` ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+## B
+
+### Bitangent
+One axis of a tangent-space surface frame, together with the tangent and normal. It helps express view and lighting directions relative to a surface. The parallax shader defines a plane's tangent, bitangent, and normal explicitly ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### BRDF (Bidirectional Reflectance Distribution Function)
+A function describing how much incoming light is reflected toward a viewing direction for a given surface. The PBR shader combines diffuse and specular terms using the Cook-Torrance microfacet BRDF ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+## C
+
+### Clip space
+The coordinate space produced by the vertex shader before clipping and perspective division. A vertex shader writes a homogeneous clip-space position to `gl_Position`; the procedural-mesh shader gets there by applying instance, view, and projection transforms ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
+
+### Cook-Torrance model
+A microfacet model for specular reflection. In this project's PBR shader, its specular term combines a normal-distribution function, a geometry function, and a Fresnel function ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Coordinate space
+A frame of reference used to describe positions or directions. The project uses local/object, world, view, clip, normalized-device, screen, and tangent spaces. Transformations between these spaces are performed with matrices or basis vectors.
+
+## D
+
+### Deferred shading / deferred lighting
+A rendering approach that separates geometry capture from lighting. A geometry pass writes surface properties to G-buffer textures; a later pass reads those textures and computes illumination. The G-buffer 5 shader reconstructs each pixel's world position and lights it afterward ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Depth buffer
+A per-pixel buffer used to determine which surfaces are in front of others. The shaders also copy depth into a color texture for later sampling. Under the conventional perspective projection used here, depth is non-linear with distance ([`gbuffer_2/frag.glsl`](./g_buffer/gbuffer_2/frag.glsl), [`gbuffer_4/frag.glsl`](./g_buffer/gbuffer_4/frag.glsl)).
+
+### Diffuse reflection
+Light scattered broadly from a surface rather than reflected as a sharp highlight. The project uses Lambert-style dot-product lighting in the reflection and deferred-lighting examples and an energy-conserving diffuse term in its PBR shader ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Dot product
+An operation on two vectors that, for normalized vectors, gives the cosine of the angle between them. Shaders use it to measure how much a surface faces a light or view direction. Negative diffuse results are clamped to zero with `max` ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+## E
+
+### Energy conservation
+A lighting principle that prevents a surface from reflecting more energy than it receives. The PBR shader reduces the diffuse contribution as the Fresnel reflection increases and suppresses diffuse reflection for metals ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Environment reflection
+Reflected light or scenery arriving from the surrounding environment. The reflection and PBR examples approximate the environment with a procedural sky-color function rather than sampling a full environment map ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+## F
+
+### F0
+The reflectance at normal incidence (viewing a surface head-on). The simple reflection shader uses approximately `0.04` for a typical non-metal; the PBR shader uses that value for dielectrics and the albedo for metals ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Face winding
+The order in which a triangle's vertices are listed. It determines the triangle's front-facing orientation when face culling is enabled. `createQuad` can append reversed-winding indices to make the quad's triangles available from either side ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts)).
+
+### Fragment
+A candidate pixel generated when a primitive is rasterized. A fragment shader calculates its output color and may write additional render-target values, such as depth or normals.
+
+### Fragment shader
+A programmable GPU stage that runs for rasterized fragments. It samples textures and computes output colors; G-buffer examples can also write multiple outputs ([`gbuffer_4/frag.glsl`](./g_buffer/gbuffer_4/frag.glsl)).
+
+### Fresnel effect
+The increase in reflectance at grazing angles, where a surface is viewed nearly edge-on. The project implements Schlick's approximation in its reflection and PBR shaders ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+## G
+
+### Gamma correction
+A nonlinear adjustment that converts linear-light shader results to values appropriate for display. The PBR shader applies a power of `1.0 / 2.2` after tone mapping ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### G-buffer (Geometry Buffer)
+A set of render targets that stores per-pixel surface data, such as albedo, depth, and normals, for a later rendering pass. This project's G-buffer examples progressively write and use those values ([`gbuffer_2/frag.glsl`](./g_buffer/gbuffer_2/frag.glsl), [`gbuffer_3/frag.glsl`](./g_buffer/gbuffer_3/frag.glsl), [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### GGX
+A microfacet normal-distribution function used to shape specular highlights according to roughness. The PBR shader implements the GGX distribution in `distributionGGX` ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### GLSL ES
+The OpenGL ES Shading Language used by WebGL. The project's shader files declare version `300 es`, corresponding to GLSL ES 3.00 ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
+
+### Geometry function
+In a microfacet BRDF, a factor accounting for microfacets that block incoming light or hide reflected light from the viewer. The PBR shader uses Schlick-GGX and Smith-style terms for this effect ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Geometry shader (geometry pass)
+A rendering pass that draws scene surfaces and records their attributes into render targets. In this project, the term refers to the pass that fills G-buffer textures; it is distinct from the optional programmable GPU stage also called a geometry shader.
+
+## H
+
+### Height map
+A texture whose values represent surface height. Parallax mapping samples a height map to shift texture coordinates and create an apparent depth effect without changing the mesh silhouette ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### HDR (High Dynamic Range)
+Color values that can represent light intensities beyond the display range of `[0, 1]`. PBR lighting can produce such values, so the shader tone maps them before display ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Homogeneous coordinates
+Coordinates with an extra `w` component that allow translation and perspective transformations to be represented with matrix multiplication. Positions are commonly represented as `vec4(position, 1.0)` and divided by `w` after projection or unprojection.
+
+## I
+
+### Indexed geometry
+Mesh data in which an index array refers to entries in vertex-attribute arrays. It allows triangles to reuse vertices. The procedural cube builder offsets each quad's local indices when appending it to the full mesh ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts)).
+
+### Instancing
+Drawing multiple copies of a mesh while supplying per-instance data, such as a transform matrix, rather than duplicating all of its vertex data. The procedural-mesh vertex shader receives four matrix columns and per-instance identifiers ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
+
+## L
+
+### Lambertian diffuse
+A simple diffuse-lighting model where brightness is proportional to the nonnegative dot product of the surface normal and light direction. It is used in the simple reflection and deferred-lighting shaders ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### LDR (Low Dynamic Range)
+A limited display range, commonly `[0, 1]` per color channel. Tone mapping converts HDR lighting results into this range for display.
+
+### Linear interpolation (`mix`)
+A weighted blend between two values. In GLSL, `mix(a, b, t)` blends from `a` to `b` as `t` moves from 0 to 1. The shaders use it for colors and for refining a parallax ray's surface intersection ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+## M
+
+### Material ID
+A value identifying a material or material category, rather than a smoothly varying surface property. The procedural-mesh vertex shader forwards the red component of vertex color as a flat material ID; the current fragment shader does not use it ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
+
+### Metallic
+A material parameter describing whether a surface behaves like a metal or a dielectric (non-metal). In the PBR shader, metals use albedo-colored reflectance and have no diffuse term; non-metals use a base F0 near `0.04` ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Microfacet
+A microscopic surface facet used by microfacet BRDF models to approximate the many tiny orientations on a rough surface. The PBR shader uses a microfacet distribution, geometry, and Fresnel terms to compute specular reflection ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### MRT (Multiple Render Targets)
+Writing several fragment outputs to separate color attachments in a single draw. The G-buffer shaders use explicit output locations to store screen color, depth, and in one stage normals ([`gbuffer_3/frag.glsl`](./g_buffer/gbuffer_3/frag.glsl), [`gbuffer_4/frag.glsl`](./g_buffer/gbuffer_4/frag.glsl)).
+
+## N
+
+### NDC (Normalized Device Coordinates)
+The normalized coordinate space after perspective division and before viewport mapping. With the conventional WebGL/OpenGL clip-depth convention used by these examples, x, y, and z are in `[-1, 1]`. G-buffer shaders convert screen UV and sampled depth back into NDC before reconstructing world position ([`gbuffer_4/frag.glsl`](./g_buffer/gbuffer_4/frag.glsl), [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Normal
+A vector perpendicular to a surface, used to determine how the surface faces lights and the viewer. The project transforms normals in vertex shaders, stores them in a G-buffer, and decodes them from `[0, 1]` when needed ([`gbuffer_3/frag.glsl`](./g_buffer/gbuffer_3/frag.glsl), [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Normal matrix
+The inverse transpose of the linear part of an object's transform. It correctly transforms normals when the object has non-uniform scaling or shear. Some project vertex shaders use the simpler upper-left `mat3(world)` transform, which is suitable for rotation and uniform scale but not every transform.
+
+## P
+
+### Parallax mapping
+A family of techniques that shifts texture coordinates based on view direction and height data to simulate surface relief without adding geometric detail ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### Parallax Occlusion Mapping (POM)
+A parallax technique that marches a view ray through height layers to estimate where it intersects the height field. The project samples multiple layers and interpolates between the last two samples for a smoother intersection ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl), [`POM_Explanation.md`](./materials/parallax_2/POM_Explanation.md)).
+
+### Perspective divide
+Dividing a homogeneous position's `xyz` components by its `w` component. It converts clip coordinates into normalized coordinates and is also used after inverse view-projection to recover a Cartesian world-space position ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Point light
+A light with a position in space that illuminates surfaces in different directions depending on their locations. The deferred-lighting shader computes a direction and distance from each fragment to each point light ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Procedural mesh
+Geometry built by code rather than loaded as a pre-authored mesh asset. `scene.ts` constructs a cube by creating and appending six quads ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts)).
+
+## R
+
+### Radiance
+The incoming light intensity used in a lighting calculation. The PBR shader forms a simple light radiance value by multiplying light color by intensity ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Rasterization
+The stage that converts projected primitives, such as triangles, into fragments covering screen pixels. It interpolates shader outputs such as UV coordinates across each primitive.
+
+### Reflection vector
+A direction obtained by reflecting the view ray around a surface normal. The reflection and PBR shaders use GLSL's `reflect` function to look up an approximate environment color ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Roughness
+A material parameter describing the spread of microscopic surface orientations. Lower roughness produces sharper, narrower specular highlights; higher roughness produces broader, blurrier highlights ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+## S
+
+### Sampler / texture sampler
+A shader uniform representing a texture resource. GLSL's `texture` function samples the resource at specified UV coordinates ([`procedural_mesh_7/frag.glsl`](./procedural_mesh_basics/procedural_mesh_7/frag.glsl)).
+
+### Schlick approximation
+A compact approximation of the Fresnel reflectance curve, often expressed with a fifth power of one minus the view/reflection cosine. It is implemented in both the simple reflection and PBR examples ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Specular reflection
+Mirror-like reflection that forms highlights and environment reflections. In the PBR shader, it is computed using the Cook-Torrance microfacet terms.
+
+### Smith geometry
+A method for combining masking/shadowing terms for both the view and light directions in a microfacet BRDF. The project's `geometrySmith` multiplies two Schlick-GGX terms ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+## T
+
+### Tangent space
+A coordinate frame attached to a surface, commonly made from tangent, bitangent, and normal directions. It is useful for interpreting height maps or normal maps independently of the object's world orientation. The POM shader converts the view direction into this frame ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### Texture
+An image or sampled data resource used by a shader. The project uses textures for albedo, depth, normals, and height, and samples them with UV coordinates.
+
+### Texture gradients (`dFdx`, `dFdy`, `textureGrad`)
+Derivatives that describe how texture coordinates change across neighboring fragments. They help the GPU choose an appropriate mip level and filtering footprint. The POM shader supplies gradients from the original UVs when sampling at its shifted coordinates ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### Texture LOD (Level of Detail)
+A texture mipmap level selected for sampling. `textureLod` explicitly chooses a level; the height-sampling helper in the POM shader requests level zero ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
+
+### Tone mapping
+A transform that compresses HDR lighting values into a displayable LDR range. The PBR shader uses `color / (color + 1)` before gamma correction ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
+
+### Triangle winding
+The clockwise or counterclockwise order of triangle vertices as seen from one side. It controls front-face determination and can be reversed to render the opposite side ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts)).
+
+## U
+
+### Uniform
+A shader input whose value is constant across the vertices or fragments of a draw call. Matrices, camera positions, light settings, and texture samplers are commonly supplied as uniforms.
+
+### UV coordinates
+Two-dimensional texture coordinates that map a point on a mesh to a location in a texture. The procedural cube assigns a `[0, 1]` square to each face, and the fragment shader samples its texture at the interpolated UV ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts), [`procedural_mesh_7/frag.glsl`](./procedural_mesh_basics/procedural_mesh_7/frag.glsl)).
+
+## V
+
+### Varying
+A value passed from a vertex shader to a fragment shader and interpolated across the primitive. In GLSL ES 3.00, vertex outputs and fragment inputs use `out` and `in` declarations, respectively; names and types must match between stages.
+
+### Vertex
+A mesh point carrying attributes such as position, normal, color, and UV coordinates. Vertex shaders transform these points before the GPU rasterizes the mesh.
+
+### Vertex shader
+A programmable GPU stage that processes each vertex, transforms its position, and passes per-vertex values to later stages ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
+
+### View space
+A coordinate space relative to the camera. The view matrix transforms world-space positions into this space before projection.
+
+## W
+
+### World space
+A coordinate system shared by objects in the scene, independent of an individual object's local coordinates. Lighting calculations that compare world-space positions and directions must use world-space normals and vectors consistently.
+
+### World matrix
+A matrix that transforms local/object-space positions into world space. Per-instance world matrices are assembled from four `vec4` attributes in the procedural-mesh vertex shader ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
