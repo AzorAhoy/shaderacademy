@@ -8,17 +8,21 @@ type: text/vnd.tiddlywiki
 
 From the repository root, install dependencies with `npm ci`, then run `npm run notebook:serve`. Open http://127.0.0.1:8080/ to create and edit study-note tiddlers. The server is bound to localhost.
 
-Hand-authored notes are saved in `notebook/tiddlers/`. Commit those files to preserve and share your notes. Stop the server before rebuilding or regenerating imported content.
+Hand-authored notes are saved in `notebook/tiddlers/`. They are not published by default. Keep sensitive notes outside the repository and never commit them to a public repository. Stop the server before rebuilding or regenerating imported content.
 
 !! Imported project content
 
-Run `npm run notebook:import` to refresh the guides and code. The generated bundle is `notebook/tiddlers/generated-project.json`; it is ignored by Git and rebuilt from repository files.
+Run `npm run notebook:import` to refresh the approved guides and code. The generated bundle is `notebook/tiddlers/generated-project.json`; it is ignored by Git and rebuilt from the project files explicitly listed in `notebook/public-content.json`.
 
 Edit imported guides and source in their original repository files, not in the wiki editor: imported tiddler edits are overwritten by the next import. Use new, uniquely titled tiddlers for annotations, and tag them ''Study Note''.
 
 !! Static publishing
 
 Run `npm run notebook:build` to create `dist/index.html`, a self-contained TiddlyWiki publication. The GitHub Actions workflow builds and deploys this file to GitHub Pages.
+
+The build uses an isolated notebook with only approved files and tiddler titles from `notebook/public-content.json`. Review a note before adding its file and exact title to `notebookFiles`. New notes, unlisted source files, and custom system tiddlers are not automatically exported. Notes tagged ''Private'' or ''Confidential'' are rejected even if listed.
+
+The allowlist is not a secret scanner or repository access control: committed files and Git history can still be read by anyone with repository access. Previously published copies are not removed by changing the allowlist.
 
 In the repository's Settings -> Pages, select ''GitHub Actions'' as the build source. Push your changes to the default branch, or run the workflow manually. The Pages URL is shown by the deployment workflow.
 

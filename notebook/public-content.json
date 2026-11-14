@@ -1,0 +1,45 @@
+{
+  "projectFiles": [
+    "README.md",
+    "GLOSSARY.md",
+    "CODE_SNIPPETS.md",
+    "g_buffer/gbuffer_1/frag.glsl",
+    "g_buffer/gbuffer_1/vert.glsl",
+    "g_buffer/gbuffer_2/frag.glsl",
+    "g_buffer/gbuffer_2/vert.glsl",
+    "g_buffer/gbuffer_3/frag.glsl",
+    "g_buffer/gbuffer_3/vert.glsl",
+    "g_buffer/gbuffer_4/CODE_EXPLANATION.md",
+    "g_buffer/gbuffer_4/frag.glsl",
+    "g_buffer/gbuffer_4/vert.glsl",
+    "g_buffer/gbuffer_5/CODE_EXPLANATION.md",
+    "g_buffer/gbuffer_5/frag.glsl",
+    "materials/light_6/SimpleReflection_Explanation.md",
+    "materials/light_6/frag.glsl",
+    "materials/light_6/vert.glsl",
+    "materials/light_7/PBR_Explanation.md",
+    "materials/light_7/frag.glsl",
+    "materials/light_7/vert.glsl",
+    "materials/parallax_2/POM_Explanation.md",
+    "materials/parallax_2/frag.glsl",
+    "materials/parallax_2/vert.glsl",
+    "procedural_mesh_basics/procedural_mesh_7/CODE_EXPLANATION.md",
+    "procedural_mesh_basics/procedural_mesh_7/frag.glsl",
+    "procedural_mesh_basics/procedural_mesh_7/scene.ts",
+    "procedural_mesh_basics/procedural_mesh_7/vert.glsl"
+  ],
+  "notebookFiles": [
+    {
+      "path": "notebook/tiddlers/Welcome.tid",
+      "titles": ["Welcome"]
+    },
+    {
+      "path": "notebook/tiddlers/Notebook Guide.tid",
+      "titles": ["Notebook Guide"]
+    },
+    {
+      "path": "notebook/tiddlers/settings.json",
+      "titles": ["$:/SiteTitle", "$:/SiteSubtitle", "$:/DefaultTiddlers"]
+    }
+  ]
+}

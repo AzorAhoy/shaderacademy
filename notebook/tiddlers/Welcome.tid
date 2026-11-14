@@ -29,7 +29,7 @@ Explore the project's explanations, glossary, reusable code snippets, and shader
 
 !! Study notes
 
-Create a tiddler in the local notebook, tag it ''Study Note'', and link it to an example with TiddlyWiki links such as `[[g_buffer/gbuffer_5/frag.glsl]]`.
+Create a tiddler in the local notebook, tag it ''Study Note'', and link it to an example with TiddlyWiki links such as `[[g_buffer/gbuffer_5/frag.glsl]]`. Notes stay unpublished until their file and title are explicitly approved in `notebook/public-content.json`. Never commit sensitive notes to a public repository.
 
 <ul>
 <$list filter="[tag[Study Note]sort[title]]">

@@ -11,21 +11,14 @@ const tiddlers = JSON.parse(fs.readFileSync(
 ));
 const byTitle = new Map(tiddlers.map((tiddler) => [tiddler.title, tiddler]));
 
-test("imports all supported project files with TiddlyWiki string fields", () => {
-  function check(directory) {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const file = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        check(file);
-      } else if (entry.isFile() && /\.(md|glsl|ts)$/.test(entry.name)) {
-        const title = path.relative(root, file).split(path.sep).join("/");
-        assert.ok(byTitle.has(title), `Missing ${title}`);
-      }
-    }
+test("imports only approved project files with TiddlyWiki string fields", () => {
+  const manifest = JSON.parse(fs.readFileSync(
+    path.join(root, "notebook", "public-content.json"), "utf8"
+  ));
+  for (const title of manifest.projectFiles) {
+    assert.ok(byTitle.has(title), `Missing ${title}`);
   }
-  for (const directory of ["g_buffer", "materials", "procedural_mesh_basics"]) {
-    check(path.join(root, directory));
-  }
+  assert.equal(tiddlers.length, manifest.projectFiles.length + 3);
   assert.equal(byTitle.size, tiddlers.length);
   for (const tiddler of tiddlers) {
     for (const [field, value] of Object.entries(tiddler)) {
