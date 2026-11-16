@@ -9,7 +9,7 @@ Explore the project's explanations, glossary, reusable code snippets, and shader
 !! Start here
 
 * [[Glossary|GLOSSARY.md]] - definitions, formulas, and winding diagrams.
-* [[Reusable code and GLSL functions|CODE_SNIPPETS.md]] - examples, usage guides, and pitfalls.
+* [[Reusable code and GLSL functions|CODE_SNIPPETS.md]] - examples from lighting and mesh construction to ripples, scanlines, particles, and transitions.
 * [[Project overview|README.md]]
 * [[Notebook editing and publishing|Notebook Guide]]
 

@@ -5,6 +5,8 @@ This guide collects reusable patterns found in the project's GLSL shaders and pr
 For definitions and formulas for the terms used below, see the project [glossary](./GLOSSARY.md).
 For axis directions, mesh UV layouts, and an interactive demonstration, see
 [3D axes and UV coordinate conventions](./COORDINATE_CONVENTIONS.md).
+In the notebook, links to examples not listed in its public-content allowlist
+remain repository-relative; open those files in the repository instead.
 
 ## 1. Common GLSL built-in functions
 
@@ -139,6 +141,21 @@ float mirroredDistance = abs(worldPosition.x);
 - `mod` supports repeating patterns; its behavior with negative inputs follows the formula above, not necessarily a language's remainder operator.
 
 These are additional pattern-building examples that can be used with the project's UV-based materials. `fract` introduces seams in UV derivatives. For ordinary image repetition, prefer renderer-configured texture wrapping where possible; use explicit gradients if a procedural wrap needs stable mip selection.
+
+### `sin` - periodic motion and patterns
+
+```glsl
+float phase = distanceFromCenter * frequency - time * speed;
+float wave = sin(phase) * amplitude;
+```
+
+`sin` takes radians and returns a value in `[-1, 1]`. In this example,
+`frequency` is radians per distance unit, `speed` is radians per time unit,
+and `amplitude` scales the output. For positive frequency and speed, a fixed
+phase moves outward at `speed / frequency` distance units per time unit.
+The [interactive ripple shader](./interactive/interact_5/frag.glsl) adds three
+such waves; the [scanline shader](./uv/uv_4/frag.glsl) uses a sine of screen Y
+and time to produce horizontal bands.
 
 ### `texture`, `textureLod`, and `textureGrad` - texture lookup
 
@@ -505,6 +522,133 @@ quad.indices.forEach((index) => {
 4. Add that offset to each local index so it refers to the appended quad.
 
 If vertices are duplicated for flat face normals or per-face UVs, account for that duplication when calculating offsets. If adding another vertex attribute such as color, append corresponding values as well.
+
+## 15. Mouse-centered ripple and falloff
+
+**Use for:** Distorting a texture and varying its blend around an interactive
+UV-space center. This follows [`interact_5/frag.glsl`](./interactive/interact_5/frag.glsl):
+
+```glsl
+float dist = distance(v_uv, u_mousePosition);
+float wave1 = sin(dist * 8.0 - u_time * 2.0) * 0.1;
+float wave2 = sin(dist * 8.0 * 0.5 - u_time * 2.0 * 0.7) * 0.1 * 0.7;
+float wave3 = sin(dist * 8.0 * 0.3 - u_time * 2.0 * 0.5) * 0.1 * 0.5;
+float wave = wave1 + wave2 + wave3;
+float falloff = 1.0 - smoothstep(0.0, 0.4, dist);
+vec2 offset = vec2(wave * 0.02);
+vec4 sampled = texture(u_texture, v_uv + offset);
+fragColor = mix(vec4(0.1, 0.1, 0.1, 1.0), sampled,
+                abs(wave) * falloff + 0.3);
+```
+
+Supply a mouse position in the same UV space and orientation as `v_uv`, and
+update `u_time`. The offset moves U and V by the same amount, not radially.
+The falloff affects the color blend, not the offset; outside the radius the
+texture still contributes 30%. UV-space circles can look elliptical on a
+non-square surface, and out-of-range texture lookup behavior depends on
+sampler wrapping. See the [ripple walkthrough](./interactive/interact_5/CODE_EXPLANATION.md).
+
+## 16. Animated screen-space scanlines
+
+**Use for:** Darkening a texture with moving horizontal bands, as in
+[`uv_4/frag.glsl`](./uv/uv_4/frag.glsl):
+
+```glsl
+vec2 uv = gl_FragCoord.xy / u_resolution;
+float movingY = uv.y + u_time * 0.2;
+float scanline = sin(movingY * 100.0) * 0.5 + 0.5;
+scanline = mix(1.0, scanline, 0.2);
+vec3 color = texture(u_texture, uv).rgb;
+fragColor = vec4(color * scanline, 1.0);
+```
+
+Use nonzero framebuffer dimensions and update them on resize. This assumes a
+zero-origin full-frame viewport; an offset viewport needs its origin subtracted
+for viewport-local UVs. `100.0` is radians per normalized vertical unit,
+approximately 15.9 complete cycles across a unit height, not 100 lines. The
+brightness multiplier ranges from `0.8` to `1.0`. In the standard lower-left
+window coordinate convention the bands move toward decreasing Y. Texture alpha
+is discarded. See the [scanline walkthrough](./uv/uv_4/CODE_EXPLANATION.md).
+
+## 17. Deterministic particle targets and animation
+
+**Use for:** Giving each input position a pseudo-random target and interpolating
+toward it, following [`particle_2/vert.glsl`](./particles/particle_2/vert.glsl):
+
+```glsl
+float random(vec3 seed) {
+    return fract(sin(dot(seed, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+}
+
+// Inside the vertex shader's main:
+vec3 offset = vec3(
+    random(position + vec3(1.0, 0.0, 0.0)),
+    random(position + vec3(0.0, 1.0, 0.0)),
+    random(position + vec3(0.0, 0.0, 1.0))
+) * 4.0 - 2.0;
+float progress = u_time / u_maxTime;
+vec3 newPos = mix(position, position + offset, progress);
+gl_PointSize = 2.0;
+gl_Position = worldViewProjection * vec4(newPos, 1.0);
+```
+
+Supply a positive nonzero `u_maxTime`, and update `u_time` in the same units.
+The project does not clamp progress: values outside `[0, 1]` extrapolate past
+the start or target. Each offset component is nominally in `[-2, 2)`;
+identical positions receive identical offsets. This sine hash is not
+cryptographically secure or guaranteed to match exactly across GPUs.
+The host must draw point primitives for `gl_PointSize` to produce point
+particles. The example's [fragment shader](./particles/particle_2/frag.glsl)
+derives binary RGB channels from the animated world position, so colors can
+change during movement. Use a separate stable seed if fixed colors are needed.
+
+## 18. Red-channel threshold transition
+
+**Use for:** Hiding pixels according to the sampled red channel, as in
+[`image_transition_1/frag.glsl`](./image_transitions/image_transition_1/frag.glsl):
+
+```glsl
+vec4 color = texture(u_texture, v_uv);
+float progress = u_time / u_maxTime;
+float mask = step(progress, color.r);
+color.a *= mask;
+fragColor = color;
+```
+
+Use a positive nonzero `u_maxTime`. A sampled red value below `progress` gets
+alpha zero; one equal to or above it retains its original alpha. RGB is not
+changed, and transparent pixels do not disappear visually unless the host uses
+appropriate blending or another transparency strategy. Progress is not
+clamped. The mask comes from the same texture's red channel, not a separate
+noise map; it is a color-driven threshold rather than a crossfade.
+
+## 19. Lathe surface and profile normal
+
+**Use for:** Revolving a radius profile around the Y axis, following
+[`lathe_1/scene.ts`](./procedural_mesh_basics/lathe_1/scene.ts):
+
+```ts
+const t = row / rows;
+const u = segment / segments;
+const angle = startAngle + u * Math.PI * 2;
+const radius = radiusAt(t);
+const y = (t - 0.5) * height;
+const eps = 0.001;
+const slope = (radiusAt(t + eps) - radiusAt(t - eps)) / (2 * eps * height);
+const length = Math.sqrt(1 + slope * slope);
+
+mesh.vertices.push(radius * Math.cos(angle), y, radius * Math.sin(angle));
+mesh.uvs.push(u, t);
+mesh.normals.push(Math.cos(angle) / length, -slope / length, Math.sin(angle) / length);
+```
+
+Use positive `rows`, `segments`, and `height`, and a profile that can be
+evaluated slightly beyond both endpoints for the centered difference. Generate
+rows and segments inclusively to duplicate the seam at `u = 0` and `u = 1`;
+then connect adjacent rows with indexed triangles. The derivative estimates
+`dr/dy`, tilting the normal along the profile rather than pointing it purely
+outward. The example builds the side surface, not top or bottom caps. See the
+[lathe explanation](./procedural_mesh_basics/lathe_1/CODE_EXPLANATION.md).
 
 ## General integration checklist
 

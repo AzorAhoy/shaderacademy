@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const supported = new Set([".md", ".glsl", ".ts", ".html"]);
+const supported = new Set([".md", ".glsl", ".ts", ".html", ".svg"]);
 const interactiveDemos = {
   "docs/coordinate-demo.html": {
     title: "Axes & UV Explorer",
@@ -45,22 +45,38 @@ function importNotebook(root) {
   const files = manifest.projectFiles.map((name) => {
     const file = approvedFile(root, name);
     if (!supported.has(path.extname(file))) {
-      throw new Error("Approved project files must be Markdown, GLSL, TypeScript, or a supported HTML demo.");
+      throw new Error("Approved project files must be Markdown, GLSL, TypeScript, SVG, or a supported HTML demo.");
     }
     return file;
   });
   const titles = new Set(files.map(titleFor));
+  const filesByTitle = new Map(files.map((file) => [titleFor(file), file]));
 
-  function convertLink(target, sourceFile) {
-    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(target)) {
-      return target;
-    }
+  function resolveTarget(target, sourceFile) {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(target)) return null;
     const pathname = target.split("#")[0];
-    const file = pathname
+    return pathname
       ? path.resolve(path.dirname(sourceFile), decodeURIComponent(pathname))
       : sourceFile;
+  }
+
+  function convertLink(target, sourceFile) {
+    const file = resolveTarget(target, sourceFile);
+    if (!file) return target;
     const title = titleFor(file);
     return titles.has(title) ? `#${encodeURIComponent(title)}` : target;
+  }
+
+  function convertImage(label, target, sourceFile) {
+    const file = resolveTarget(target, sourceFile);
+    const approved = file && filesByTitle.get(titleFor(file));
+    if (!approved || path.extname(approved) !== ".svg") {
+      return `![${label}](${target})`;
+    }
+    const escapeAttribute = (value) => value.replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<$image source="${escapeAttribute(titleFor(approved))}" ` +
+      `alt="${escapeAttribute(label)}"/>`;
   }
 
   function convertMarkdown(text, file) {
@@ -83,6 +99,9 @@ function importNotebook(root) {
         return line;
       }
       return line.replace(
+        /!\[([^\]\n]*)\]\(([^)\s]+)\)/g,
+        (_, label, target) => convertImage(label, target, file)
+      ).replace(
         /(?<!!)\[([^\]\n]+)\]\(([^)\s]+)\)/g,
         (_, label, target) => `[${label}](${convertLink(target, file)})`
       );
@@ -99,6 +118,15 @@ function importNotebook(root) {
   const tiddlers = files.map((file) => {
     const title = titleFor(file);
     const source = fs.readFileSync(file, "utf8");
+    if (path.extname(file) === ".svg") {
+      return {
+        title,
+        type: "image/svg+xml",
+        tags: `[[Illustration]] [[${categoryFor(title)}]]`,
+        "source-path": title,
+        text: source
+      };
+    }
     if (path.extname(file) === ".html") {
       const demo = interactiveDemos[title];
       if (!demo) {

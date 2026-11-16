@@ -73,6 +73,27 @@ test("scanline guide links to its imported shaders", () => {
   }
 });
 
+test("updated references link to approved examples and embed the lathe illustration", () => {
+  const snippets = byTitle.get("CODE_SNIPPETS.md").text;
+  const glossary = byTitle.get("GLOSSARY.md").text;
+  for (const title of [
+    "image_transitions/image_transition_1/frag.glsl",
+    "procedural_mesh_basics/lathe_1/scene.ts",
+    "procedural_mesh_basics/lathe_1/CODE_EXPLANATION.md"
+  ]) {
+    assert.ok(byTitle.has(title), `Missing ${title}`);
+    assert.ok(snippets.includes(`](#${encodeURIComponent(title)})`));
+  }
+  assert.ok(glossary.includes("](#image_transitions%2Fimage_transition_1%2Ffrag.glsl)"));
+  const illustrationTitle = "procedural_mesh_basics/lathe_1/radius-profile.svg";
+  const illustration = byTitle.get(illustrationTitle);
+  assert.equal(illustration.type, "image/svg+xml");
+  const guide = byTitle.get("procedural_mesh_basics/lathe_1/CODE_EXPLANATION.md").text;
+  assert.ok(guide.includes(`<$image source="${illustrationTitle}" alt="Plot of the radius function`));
+  assert.ok(illustration.text.includes("<svg "));
+  assert.ok(guide.includes(`](#${encodeURIComponent(illustrationTitle)})`));
+});
+
 test("imports approved interactive demos as sandboxed, embedded notebook pages", () => {
   const coordinateDemo = byTitle.get("docs/coordinate-demo.html");
   const rippleDemo = byTitle.get("interactive/interact_5/wave-demo.html");

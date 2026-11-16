@@ -3,6 +3,8 @@
 This glossary defines graphics, shader, material, and geometry terms used in the project's GLSL shaders, TypeScript mesh code, and shader explanations. Entries include links to representative examples.
 
 For reusable shader and mesh implementations of these concepts, see the [common code snippets guide](./CODE_SNIPPETS.md).
+In the notebook, links to examples outside its public-content allowlist remain
+repository-relative; open those files in the repository instead.
 
 ### Notation used in formulas
 Vectors such as the normal `N`, light direction `L`, and view direction `V` are assumed to be normalized unless noted. `dot(a, b)` is the dot product, `clamp(x, 0, 1)` limits a scalar to `[0, 1]`, and `ρ` denotes a reflectance or color value. Shader code may omit factors such as `1/π` for a simplified visual model.
@@ -86,6 +88,12 @@ Reflected light or scenery arriving from the surrounding environment. The reflec
 
 ## F
 
+### Falloff
+The reduction of an effect as distance or another quantity increases. The
+[ripple shader](./interactive/interact_5/frag.glsl) uses
+`1 - smoothstep(0, radius, distance)` to fade its wave's contribution to the
+color blend; its texture-coordinate offset is not faded by that value.
+
 ### F0
 The reflectance at normal incidence (viewing a surface head-on). The simple reflection shader uses approximately `0.04` for a typical non-metal; the PBR shader uses that value for dielectrics and the albedo for metals ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
 
@@ -151,6 +159,12 @@ In a microfacet BRDF, a factor accounting for microfacets that block incoming li
 ### Geometry shader (geometry pass)
 A rendering pass that draws scene surfaces and records their attributes into render targets. In this project, the term refers to the pass that fills G-buffer textures; it is distinct from the optional programmable GPU stage also called a geometry shader.
 
+### `gl_FragCoord`
+A fragment-shader built-in containing window-space fragment coordinates.
+The [scanline shader](./uv/uv_4/frag.glsl) divides its `xy` by framebuffer
+resolution to obtain screen UVs; G-buffer examples use `z` as depth.
+An offset viewport needs an origin adjustment for viewport-local coordinates.
+
 ## H
 
 ### Height map
@@ -180,6 +194,12 @@ Drawing multiple copies of a mesh while supplying per-instance data, such as a t
 
 ### Lambertian diffuse
 A simple diffuse-lighting model where brightness is proportional to the nonnegative dot product of the surface normal and light direction. It is used in the simple reflection and deferred-lighting shaders ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
+
+### Lathe / surface of revolution
+A surface made by revolving a profile around an axis. The
+[lathe mesh](./procedural_mesh_basics/lathe_1/scene.ts) revolves a radius
+profile around Y, duplicates the UV seam, and estimates a profile slope to
+tilt its normals.
 
 ### LDR (Low Dynamic Range)
 A limited display range, commonly `[0, 1]` per color channel. Tone mapping converts HDR lighting results into this range for display.
@@ -230,18 +250,45 @@ A parallax technique that marches a view ray through height layers to estimate w
 
 **Layer step:** For `N` layers, `Δh = 1/N` and `Δuv = uvPerHeight · Δh`. March `h_ray` down by `Δh` while stepping UV by `Δuv`; refine the crossing with `uv_hit = mix(uv_before, uv_after, t)`, where `t = gap_before/(gap_before + gap_after)`.
 
+### Particle
+An individual element in a particle effect, often drawn as a point or small
+sprite. The project's [static](./particles/particle_1/vert.glsl) and
+[animated](./particles/particle_2/vert.glsl) examples displace input vertices;
+the host must choose point drawing and supply any particle management.
+
 ### Perspective divide
 Dividing a homogeneous position's `xyz` components by its `w` component. It converts clip coordinates into normalized coordinates and is also used after inverse view-projection to recover a Cartesian world-space position ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
 
 **Formula:** For homogeneous `p = (x, y, z, w)`, the Cartesian point is `(x/w, y/w, z/w)`, provided `w ≠ 0`.
+
+### Phase, amplitude, and frequency
+The phase is the input to a periodic function such as sine; amplitude scales
+its output, and frequency describes how quickly its phase changes. In the
+[ripple shader](./interactive/interact_5/frag.glsl),
+`A * sin(k * distance - omega * time)` has amplitude `A`, angular spatial
+frequency `k`, and angular time frequency `omega`. For positive `k` and
+`omega`, its fixed-phase bands travel outward at `omega / k`.
 
 ### Point light
 A light with a position in space that illuminates surfaces in different directions depending on their locations. The deferred-lighting shader computes a direction and distance from each fragment to each point light ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
 
 **Direction and distance:** `toLight = p_light - p_surface`, `d = ||toLight||`, and `L = toLight/d`.
 
+### Point primitive
+A primitive represented by a single vertex. When the host draws points,
+`gl_PointSize` requests their screen-space size in pixels, subject to the
+implementation's supported range. The [particle shader](./particles/particle_2/vert.glsl)
+requests `2.0`; its fragment shader does not mask the point into a circle.
+
 ### Procedural mesh
 Geometry built by code rather than loaded as a pre-authored mesh asset. `scene.ts` constructs a cube by creating and appending six quads ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts)).
+
+### Pseudo-random hash
+A deterministic function that maps a seed to a value that appears random. The
+[particle shaders](./particles/particle_2/vert.glsl) use a sine-based hash of
+position; identical seeds produce identical values in the same execution
+environment. Its distribution and exact results across GPUs are not
+guaranteed, and it is not suitable for cryptography.
 
 ## R
 
@@ -269,6 +316,18 @@ A material parameter describing the spread of microscopic surface orientations. 
 A shader uniform representing a texture resource. GLSL's `texture` function samples the resource at specified UV coordinates ([`procedural_mesh_7/frag.glsl`](./procedural_mesh_basics/procedural_mesh_7/frag.glsl)).
 
 **Sampling notation:** `color = texture(sampler, uv)`, where `uv` selects the texture location.
+
+### Scanline
+A horizontal band used as a visual effect. The
+[scanline shader](./uv/uv_4/frag.glsl) modulates texture brightness using a
+sine of screen Y and time. Its coefficient `100.0` is in radians per
+normalized vertical unit, giving about 15.9 complete cycles per unit.
+
+### Screen-space coordinates
+Coordinates describing a location in the framebuffer or viewport rather than
+on an object's surface. The scanline example divides `gl_FragCoord.xy` by
+resolution; unlike mesh UVs, these coordinates follow the rendered screen.
+Coordinate origin, framebuffer size, and viewport offset must be consistent.
 
 ### Schlick approximation
 A compact approximation of the Fresnel reflectance curve, often expressed with a fifth power of one minus the view/reflection cosine. It is implemented in both the simple reflection and PBR examples ([`light_6/frag.glsl`](./materials/light_6/frag.glsl), [`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
@@ -301,6 +360,13 @@ Derivatives that describe how texture coordinates change across neighboring frag
 ### Texture LOD (Level of Detail)
 A texture mipmap level selected for sampling. `textureLod` explicitly chooses a level; the height-sampling helper in the POM shader requests level zero ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
 
+### Threshold mask
+A binary value selected by comparing an input with a cutoff. GLSL's
+`step(edge, x)` returns `0` below the edge and `1` at or above it. The
+[image transition](./image_transitions/image_transition_1/frag.glsl) uses the
+sampled red channel and time-based progress to mask texture alpha; blending
+configuration is still required to display transparency.
+
 ### Tone mapping
 A transform that compresses HDR lighting values into a displayable LDR range. The PBR shader uses `color / (color + 1)` before gamma correction ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
 
@@ -321,12 +387,22 @@ Two-dimensional texture coordinates that map a point on a mesh to a location in 
 
 **Screen-to-texture mapping:** For normalized UV `(u,v) ∈ [0,1]²`, the texture is sampled at that normalized location; the procedural cube maps each face's four corners to `(0,0)`, `(1,0)`, `(1,1)`, and `(0,1)`.
 
+### UV seam
+A location where neighboring or coincident surface points have different UV
+coordinates. The [lathe mesh](./procedural_mesh_basics/lathe_1/scene.ts)
+duplicates the start and end of each ring so the seam can have U values `0`
+and `1` while the surface wraps around.
+
 ## V
 
 ### Varying
 A value passed from a vertex shader to a fragment shader and interpolated across the primitive. In GLSL ES 3.00, vertex outputs and fragment inputs use `out` and `in` declarations, respectively; names and types must match between stages.
 
-**Interpolation:** For a triangle with barycentric weights `λ₀, λ₁, λ₂` summing to 1, a smoothly interpolated value is `v = λ₀v₀ + λ₁v₁ + λ₂v₂`. `flat` outputs bypass this interpolation.
+**Interpolation:** Default smooth interpolation is perspective-correct. For
+screen-space barycentric weights `λᵢ`, vertex clip-space values `wᵢ`, and
+vertex values `vᵢ`, `v = (Σ λᵢ vᵢ / wᵢ) / (Σ λᵢ / wᵢ)`. With equal `wᵢ`
+this reduces to the usual linear weighted sum. `flat` outputs bypass
+interpolation and use the provoking vertex's value.
 
 ### Vertex
 A mesh point carrying attributes such as position, normal, color, and UV coordinates. Vertex shaders transform these points before the GPU rasterizes the mesh.
