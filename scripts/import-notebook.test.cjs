@@ -49,7 +49,7 @@ test("wraps shader source verbatim in a fenced code block", () => {
 });
 
 test("particle guides link to their imported shaders and each other", () => {
-  for (const particle of ["particle_1", "particle_2"]) {
+  for (const particle of ["particle_1", "particle_2", "particle_4", "particle_5", "particle_6"]) {
     const guide = byTitle.get(`particles/${particle}/CODE_EXPLANATION.md`);
     assert.ok(guide);
     for (const shader of ["vert.glsl", "frag.glsl"]) {
@@ -61,6 +61,15 @@ test("particle guides link to their imported shaders and each other", () => {
   assert.ok(byTitle.get("particles/particle_2/CODE_EXPLANATION.md").text.includes(
     "](#particles%2Fparticle_1%2FCODE_EXPLANATION.md)"
   ));
+  for (const [source, target] of [
+    ["particle_4", "particle_2"],
+    ["particle_5", "particle_6"],
+    ["particle_6", "particle_5"]
+  ]) {
+    assert.ok(byTitle.get(`particles/${source}/CODE_EXPLANATION.md`).text.includes(
+      `](#${encodeURIComponent(`particles/${target}/CODE_EXPLANATION.md`)})`
+    ));
+  }
 });
 
 test("scanline guide links to its imported shaders", () => {
