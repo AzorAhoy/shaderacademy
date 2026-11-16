@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Shader Academy: Interactive Ripple Explorer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      background: #101725;
+      color: #e7edf7;
+    }
+    body { max-width: 1100px; margin: auto; padding: 24px; }
+    h1 { margin-bottom: 8px; }
+    p { line-height: 1.55; }
+    a { color: #91c9ff; }
+    .panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    section { min-width: 0; padding: 18px; background: #182337; border: 1px solid #35445c; border-radius: 12px; }
+    h2 { margin-top: 0; font-size: 1.1rem; }
+    canvas { display: block; width: 100%; background: #101725; border-radius: 8px; }
+    #surface { cursor: crosshair; touch-action: none; }
+    .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 18px 0; }
+    label { display: block; }
+    input[type="range"], select { width: 100%; margin-top: 8px; }
+    select, button {
+      font: inherit;
+      padding: 8px;
+      color: inherit;
+      background: #263650;
+      border: 1px solid #7e94b4;
+      border-radius: 6px;
+    }
+    button { cursor: pointer; }
+    input, select, button, canvas { accent-color: #ffda62; }
+    :focus-visible { outline: 3px solid #ffda62; outline-offset: 3px; }
+    output { font-variant-numeric: tabular-nums; }
+    .readout { padding: 12px; border-left: 3px solid #ffda62; background: #101725; }
+    .note { color: #bbcade; font-size: 0.9rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .actions label { flex: 1 1 240px; }
+    @media (max-width: 760px) {
+      body { padding: 14px; }
+      .panels, .controls { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Interactive Ripple Explorer</h1>
+  <p>Move or touch the image to move the ripple center. The image and graph
+    visualize the same three sine waves, distance falloff, and texture offset
+    used by this lesson's fragment shader. The demo starts at frequency 16 to
+    make the rings easier to see; set it to 8 to match the shader's default.</p>
+
+  <div class="panels">
+    <section>
+      <h2>Surface and mouse-centered effect</h2>
+      <canvas id="surface" width="320" height="320" role="img"
+        aria-label="Interactive texture showing the mouse-centered ripple effect">
+        Use the controls and readout below to explore the ripple.
+      </canvas>
+      <p class="note">Enhanced view adds a false-color highlight based on the
+        signed wave value. Choose “Final shader color” to see the unmodified
+        shader blend. The dashed radius and yellow center marker are guides.</p>
+    </section>
+    <section>
+      <h2>Wave profile by distance</h2>
+      <canvas id="graph" width="600" height="480" role="img"
+        aria-label="Graph of three sine waves, their combined wave, and distance falloff">
+        The graph plots the waves and falloff against distance from the center.
+      </canvas>
+      <p class="note">The upper graph shows each sine wave and their sum. The
+        lower graph shows the smooth falloff. The vertical marker is the current
+        radius.</p>
+    </section>
+  </div>
+
+  <div class="controls">
+    <label>View
+      <select id="view">
+        <option value="enhanced" selected>Enhanced wave visibility</option>
+        <option value="final">Final shader color</option>
+        <option value="texture">Displaced texture only</option>
+        <option value="wave">Combined wave (signed)</option>
+        <option value="falloff">Distance falloff</option>
+      </select>
+    </label>
+    <label>Wave speed: <output id="speedValue" for="speed"></output>
+      <input id="speed" type="range" min="0.1" max="5" step="0.1" value="2">
+    </label>
+    <label>Wave frequency: <output id="frequencyValue" for="frequency"></output>
+      <input id="frequency" type="range" min="1" max="16" step="0.5" value="16">
+    </label>
+    <label>Wave amplitude: <output id="amplitudeValue" for="amplitude"></output>
+      <input id="amplitude" type="range" min="0.02" max="0.2" step="0.01" value="0.1">
+    </label>
+    <label>Ripple radius: <output id="radiusValue" for="radius"></output>
+      <input id="radius" type="range" min="0.1" max="0.7" step="0.01" value="0.4">
+    </label>
+    <div class="actions">
+      <button id="pause" type="button" aria-pressed="false">Pause animation</button>
+      <button id="reset" type="button">Reset demo</button>
+    </div>
+  </div>
+
+  <p class="readout"><output id="readout" aria-live="polite"></output></p>
+  <p class="note">This dependency-free Canvas illustration evaluates the
+    fragment shader's equations with a generated test pattern; it does not
+    compile or execute GLSL. The displayed coordinates use U right and V down
+    for convenient screen interaction. A real renderer must map mouse
+    coordinates into the same UV convention as its geometry.</p>
+  <p><a href="./CODE_EXPLANATION.md">Read the step-by-step shader explanation</a></p>
+
+  <script>
+    "use strict";
+    const surface = document.getElementById("surface");
+    const graph = document.getElementById("graph");
+    const ctx = surface.getContext("2d");
+    const graphCtx = graph.getContext("2d");
+    const readout = document.getElementById("readout");
+    if (!ctx || !graphCtx) {
+      readout.textContent = "Canvas 2D is unavailable. Please open this demo in a supported browser.";
+      throw new Error("The ripple explorer requires Canvas 2D.");
+    }
+
+    const controls = Object.fromEntries(
+      ["view", "speed", "frequency", "amplitude", "radius", "pause", "reset"].map(
+        (id) => [id, document.getElementById(id)]
+      )
+    );
+    const outputs = {
+      speed: document.getElementById("speedValue"),
+      frequency: document.getElementById("frequencyValue"),
+      amplitude: document.getElementById("amplitudeValue"),
+      radius: document.getElementById("radiusValue")
+    };
+    const mouse = { u: 0.5, v: 0.5 };
+    const background = 0x1a1a1a;
+    let elapsed = 0;
+    let previousFrame = 0;
+    let previousDraw = 0;
+    let paused = false;
+
+    const value = (name) => Number(controls[name].value);
+    const clamp = (x, low, high) => Math.max(low, Math.min(high, x));
+    const fract = (x) => x - Math.floor(x);
+    const parameters = () => ({
+      speed: value("speed"),
+      frequency: value("frequency"),
+      amplitude: value("amplitude"),
+      radius: value("radius")
+    });
+
+    function packColor(red, green, blue) {
+      return (red << 16) | (green << 8) | blue;
+    }
+
+    function smoothstep(edge0, edge1, x) {
+      const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+      return t * t * (3 - 2 * t);
+    }
+
+    function waveAt(distance, time, params) {
+      const wave1 = Math.sin(distance * params.frequency - time * params.speed)
+        * params.amplitude;
+      const wave2 = Math.sin(distance * params.frequency * 0.5 - time * params.speed * 0.7)
+        * params.amplitude * 0.7;
+      const wave3 = Math.sin(distance * params.frequency * 0.3 - time * params.speed * 0.5)
+        * params.amplitude * 0.5;
+      return { wave1, wave2, wave3, combined: wave1 + wave2 + wave3 };
+    }
+
+    function combinedWaveAt(distance, time, params) {
+      return Math.sin(distance * params.frequency - time * params.speed) * params.amplitude
+        + Math.sin(distance * params.frequency * 0.5 - time * params.speed * 0.7)
+          * params.amplitude * 0.7
+        + Math.sin(distance * params.frequency * 0.3 - time * params.speed * 0.5)
+          * params.amplitude * 0.5;
+    }
+
+    function falloffAt(distance, radius) {
+      return 1 - smoothstep(0, radius, distance);
+    }
+
+    function testTexture(u, v) {
+      const tile = (Math.floor(u * 8) + Math.floor(v * 8)) % 2;
+      let color = tile === 0 ? packColor(47, 118, 150) : packColor(231, 153, 79);
+      const ringU = fract(u * 2) - 0.5;
+      const ringV = fract(v * 2) - 0.5;
+      const ringDistance = Math.abs(Math.hypot(ringU, ringV) - 0.28);
+      if (ringDistance < 0.018) color = packColor(248, 230, 140);
+      if (Math.abs(fract(u * 8) - 0.5) < 0.012 ||
+          Math.abs(fract(v * 8) - 0.5) < 0.012) {
+        color = packColor(236, 241, 247);
+      }
+      return color;
+    }
+
+    function mixColor(a, b, amount) {
+      const inverse = 1 - amount;
+      return packColor(
+        Math.round(((a >> 16) & 255) * inverse + ((b >> 16) & 255) * amount),
+        Math.round(((a >> 8) & 255) * inverse + ((b >> 8) & 255) * amount),
+        Math.round((a & 255) * inverse + (b & 255) * amount)
+      );
+    }
+
+    function waveColor(wave, amplitude) {
+      const range = amplitude * 2.2;
+      const signed = clamp(wave / range, -1, 1);
+      const neutral = packColor(232, 236, 242);
+      const positive = packColor(255, 155, 72);
+      const negative = packColor(75, 166, 255);
+      return signed >= 0
+        ? mixColor(neutral, positive, signed)
+        : mixColor(neutral, negative, -signed);
+    }
+
+    function renderSurface(time, params) {
+      const image = ctx.createImageData(surface.width, surface.height);
+      const pixels = image.data;
+      const mode = controls.view.value;
+      for (let y = 0; y < surface.height; y++) {
+        const v = y / (surface.height - 1);
+        for (let x = 0; x < surface.width; x++) {
+          const u = x / (surface.width - 1);
+          const distance = Math.hypot(u - mouse.u, v - mouse.v);
+          const wave = combinedWaveAt(distance, time, params);
+          const falloff = falloffAt(distance, params.radius);
+          const offset = wave * 0.02;
+          const texture = testTexture(fract(u + offset), fract(v + offset));
+          let color;
+
+          switch (mode) {
+            case "wave":
+              color = waveColor(wave, params.amplitude);
+              break;
+            case "enhanced": {
+              const shaderColor = mixColor(
+                background,
+                texture,
+                Math.abs(wave) * falloff + 0.3
+              );
+              const highlight = falloff * 0.85;
+              color = mixColor(
+                shaderColor,
+                waveColor(wave, params.amplitude),
+                highlight
+              );
+              break;
+            }
+            case "falloff": {
+              const shade = Math.round(falloff * 255);
+              color = packColor(shade, shade, shade);
+              break;
+            }
+            case "texture":
+              color = texture;
+              break;
+            default:
+              color = mixColor(
+                background,
+                texture,
+                Math.abs(wave) * falloff + 0.3
+              );
+          }
+
+          const index = (y * surface.width + x) * 4;
+          pixels[index] = (color >> 16) & 255;
+          pixels[index + 1] = (color >> 8) & 255;
+          pixels[index + 2] = color & 255;
+          pixels[index + 3] = 255;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+
+      const centerX = mouse.u * surface.width;
+      const centerY = mouse.v * surface.height;
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(
+        centerX,
+        centerY,
+        params.radius * surface.width,
+        params.radius * surface.height,
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.setLineDash([6, 6]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffdf42";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#101725";
+      ctx.stroke();
+      ctx.restore();
+
+      readout.textContent =
+        `Ripple center U: ${mouse.u.toFixed(3)} | V: ${mouse.v.toFixed(3)} · ` +
+        `Combined wave at center: ${combinedWaveAt(0, time, params).toFixed(3)} · ` +
+        `Animation time: ${time.toFixed(2)} s`;
+    }
+
+    function drawGraph(time, params) {
+      const width = graph.width;
+      const height = graph.height;
+      const left = 54;
+      const right = width - 18;
+      const plotWidth = right - left;
+      const waveTop = Math.round(height * 0.1);
+      const waveBottom = Math.round(height * 0.53);
+      const fallTop = Math.round(height * 0.66);
+      const fallBottom = Math.round(height * 0.91);
+      const maxDistance = 0.8;
+      const maxWave = params.amplitude * 2.2;
+
+      graphCtx.clearRect(0, 0, width, height);
+      graphCtx.font = "12px system-ui, sans-serif";
+      graphCtx.fillStyle = "#e7edf7";
+      graphCtx.fillText("Wave value", 8, 24);
+      graphCtx.fillText("Falloff", 8, fallTop - 8);
+      graphCtx.fillStyle = "#bbcade";
+      graphCtx.fillText("distance from mouse (UV)", left + plotWidth / 2 - 70, height - 6);
+
+      for (let tick = 0; tick <= 4; tick++) {
+        const x = left + plotWidth * tick / 4;
+        graphCtx.strokeStyle = "#35445c";
+        graphCtx.lineWidth = 1;
+        graphCtx.beginPath();
+        graphCtx.moveTo(x, waveTop);
+        graphCtx.lineTo(x, fallBottom);
+        graphCtx.stroke();
+        graphCtx.fillStyle = "#bbcade";
+        graphCtx.fillText((maxDistance * tick / 4).toFixed(1), x - 10, fallBottom + 18);
+      }
+
+      const waveY = (sample) =>
+        waveBottom - (sample / maxWave + 1) * (waveBottom - waveTop) / 2;
+      const fallY = (sample) => fallBottom - sample * (fallBottom - fallTop);
+      const series = [
+        { name: "wave 1", color: "#68c5ff", key: "wave1" },
+        { name: "wave 2", color: "#ba9cff", key: "wave2" },
+        { name: "wave 3", color: "#7ee0b4", key: "wave3" },
+        { name: "combined", color: "#ffdf42", key: "combined", width: 2.5 }
+      ];
+
+      for (let index = 0; index < series.length; index++) {
+        const item = series[index];
+        const legendX = left + 55 + index * 100;
+        graphCtx.fillStyle = item.color;
+        graphCtx.fillRect(legendX, 9, 10, 3);
+        graphCtx.fillStyle = "#e7edf7";
+        graphCtx.fillText(item.name, legendX + 14, 15);
+        graphCtx.beginPath();
+        for (let step = 0; step <= plotWidth; step++) {
+          const distance = maxDistance * step / plotWidth;
+          const sample = waveAt(distance, time, params)[item.key];
+          const x = left + step;
+          if (step === 0) graphCtx.moveTo(x, waveY(sample));
+          else graphCtx.lineTo(x, waveY(sample));
+        }
+        graphCtx.strokeStyle = item.color;
+        graphCtx.lineWidth = item.width || 1.5;
+        graphCtx.stroke();
+      }
+
+      graphCtx.beginPath();
+      for (let step = 0; step <= plotWidth; step++) {
+        const distance = maxDistance * step / plotWidth;
+        const x = left + step;
+        if (step === 0) graphCtx.moveTo(x, fallY(falloffAt(distance, params.radius)));
+        else graphCtx.lineTo(x, fallY(falloffAt(distance, params.radius)));
+      }
+      graphCtx.strokeStyle = "#ff9f72";
+      graphCtx.lineWidth = 2;
+      graphCtx.stroke();
+      graphCtx.fillStyle = "#ff9f72";
+      graphCtx.fillText("1", left - 18, fallTop + 4);
+      graphCtx.fillText("0", left - 18, fallBottom + 4);
+
+      const radiusX = left + clamp(params.radius / maxDistance, 0, 1) * plotWidth;
+      graphCtx.beginPath();
+      graphCtx.setLineDash([4, 4]);
+      graphCtx.moveTo(radiusX, waveTop);
+      graphCtx.lineTo(radiusX, fallBottom);
+      graphCtx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+      graphCtx.lineWidth = 1;
+      graphCtx.stroke();
+      graphCtx.setLineDash([]);
+      graphCtx.fillStyle = "#e7edf7";
+      graphCtx.fillText(`radius ${params.radius.toFixed(2)}`, Math.min(radiusX + 5, right - 70), fallTop - 7);
+    }
+
+    function updateLabels() {
+      for (const name of ["speed", "frequency", "amplitude", "radius"]) {
+        outputs[name].textContent = value(name).toFixed(name === "frequency" ? 1 : 2);
+      }
+    }
+
+    function draw(time) {
+      updateLabels();
+      const params = parameters();
+      renderSurface(time, params);
+      drawGraph(time, params);
+    }
+
+    function setMouseFromEvent(event) {
+      const bounds = surface.getBoundingClientRect();
+      mouse.u = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
+      mouse.v = clamp((event.clientY - bounds.top) / bounds.height, 0, 1);
+    }
+
+    surface.addEventListener("pointermove", (event) => {
+      if (event.pointerType === "mouse" || event.buttons > 0) {
+        setMouseFromEvent(event);
+      }
+    });
+    surface.addEventListener("pointerdown", (event) => {
+      surface.setPointerCapture(event.pointerId);
+      setMouseFromEvent(event);
+    });
+
+    for (const control of [controls.view, controls.speed, controls.frequency, controls.amplitude, controls.radius]) {
+      control.addEventListener("input", () => draw(elapsed));
+    }
+
+    controls.pause.addEventListener("click", () => {
+      paused = !paused;
+      controls.pause.textContent = paused ? "Resume animation" : "Pause animation";
+      controls.pause.setAttribute("aria-pressed", String(paused));
+    });
+
+    controls.reset.addEventListener("click", () => {
+      controls.view.value = "enhanced";
+      controls.speed.value = "2";
+      controls.frequency.value = "16";
+      controls.amplitude.value = "0.1";
+      controls.radius.value = "0.4";
+      mouse.u = 0.5;
+      mouse.v = 0.5;
+      elapsed = 0;
+      paused = false;
+      controls.pause.textContent = "Pause animation";
+      controls.pause.setAttribute("aria-pressed", "false");
+      draw(elapsed);
+    });
+
+    function animate(timestamp) {
+      if (!paused && previousFrame !== 0) {
+        elapsed += Math.min((timestamp - previousFrame) / 1000, 0.05);
+      }
+      previousFrame = timestamp;
+      if (previousDraw === 0 || timestamp - previousDraw >= 1000 / 30) {
+        draw(elapsed);
+        previousDraw = timestamp;
+      }
+      requestAnimationFrame(animate);
+    }
+
+    draw(elapsed);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

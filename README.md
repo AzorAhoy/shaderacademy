@@ -6,8 +6,9 @@ FOR SELF-STUDY ONLY
 See [3D axes and UV coordinate conventions](./COORDINATE_CONVENTIONS.md) for
 Y-up geometry, per-face cube UVs, lathe unwrapping, and renderer-dependent settings.
 Open the [interactive axes and UV explorer](./docs/coordinate-demo.html) locally
-in a browser; it needs no dependencies or server. The standalone demo is not
-included in the published notebook.
+in a browser; it needs no dependencies or server. The notebook also includes
+sandboxed interactive previews of this explorer and the
+[ripple effect demo](./interactive/interact_5/wave-demo.html).
 
 ## TiddlyWiki notebook
 

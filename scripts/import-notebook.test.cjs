@@ -18,7 +18,7 @@ test("imports only approved project files with TiddlyWiki string fields", () => 
   for (const title of manifest.projectFiles) {
     assert.ok(byTitle.has(title), `Missing ${title}`);
   }
-  assert.equal(tiddlers.length, manifest.projectFiles.length + 3);
+  assert.equal(tiddlers.length, manifest.projectFiles.length + 4);
   assert.equal(byTitle.size, tiddlers.length);
   for (const tiddler of tiddlers) {
     for (const [field, value] of Object.entries(tiddler)) {
@@ -46,4 +46,28 @@ test("wraps shader source verbatim in a fenced code block", () => {
   assert.ok(byTitle.get(title).text.includes(`\n${original}\n`));
   assert.match(byTitle.get(title).text, /```glsl/);
   assert.match(byTitle.get("G-Buffer Index").text, /<li><\$link/);
+});
+
+test("imports approved interactive demos as sandboxed, embedded notebook pages", () => {
+  const coordinateDemo = byTitle.get("docs/coordinate-demo.html");
+  const rippleDemo = byTitle.get("interactive/interact_5/wave-demo.html");
+  assert.ok(coordinateDemo);
+  assert.ok(rippleDemo);
+  for (const demo of [coordinateDemo, rippleDemo]) {
+    assert.equal(demo.type, "text/vnd.tiddlywiki");
+    assert.match(demo.tags, /\[\[Interactive Demo\]\]/);
+    assert.match(demo.text, /sandbox="allow-scripts"/);
+    assert.match(demo.text, /src="data:text\/html;base64,/);
+  }
+  assert.match(coordinateDemo.text, /Axes & UV Explorer/);
+  assert.match(rippleDemo.text, /Interactive Ripple Explorer/);
+  for (const [demo, marker] of [
+    [coordinateDemo, 'id="uv"'],
+    [rippleDemo, 'id="surface"']
+  ]) {
+    const match = demo.text.match(/src="data:text\/html;base64,([A-Za-z0-9+/=]+)"/);
+    assert.ok(match);
+    assert.ok(Buffer.from(match[1], "base64").toString("utf8").includes(marker));
+  }
+  assert.match(byTitle.get("Interactive Demos Index").text, /tag\[Interactive Demo\]/);
 });

@@ -14,6 +14,8 @@ Hand-authored notes are saved in `notebook/tiddlers/`. They are not published by
 
 Run `npm run notebook:import` to refresh the approved guides and code. The generated bundle is `notebook/tiddlers/generated-project.json`; it is ignored by Git and rebuilt from the project files explicitly listed in `notebook/public-content.json`.
 
+The interactive axes/UV explorer and ripple explorer are imported as sandboxed previews. Their source HTML files are approved in `projectFiles`; the standalone files remain available in the repository as well.
+
 Edit imported guides and source in their original repository files, not in the wiki editor: imported tiddler edits are overwritten by the next import. Use new, uniquely titled tiddlers for annotations, and tag them ''Study Note''.
 
 !! Static publishing

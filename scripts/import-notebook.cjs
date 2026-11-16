@@ -2,7 +2,21 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const supported = new Set([".md", ".glsl", ".ts"]);
+const supported = new Set([".md", ".glsl", ".ts", ".html"]);
+const interactiveDemos = {
+  "docs/coordinate-demo.html": {
+    title: "Axes & UV Explorer",
+    description: "Explore how UV coordinates map to points on 3D surfaces.",
+    height: 2100,
+    guide: "[[3D axes and UV coordinate conventions|COORDINATE_CONVENTIONS.md]]"
+  },
+  "interactive/interact_5/wave-demo.html": {
+    title: "Interactive Ripple Explorer",
+    description: "Move the ripple center, adjust the wave controls, and compare the shader's wave and falloff views.",
+    height: 2150,
+    guide: "[[Step-by-step ripple shader explanation|interactive/interact_5/CODE_EXPLANATION.md]]"
+  }
+};
 
 function approvedFile(root, relativePath) {
   if (typeof relativePath !== "string" || path.isAbsolute(relativePath)) {
@@ -31,7 +45,7 @@ function importNotebook(root) {
   const files = manifest.projectFiles.map((name) => {
     const file = approvedFile(root, name);
     if (!supported.has(path.extname(file))) {
-      throw new Error("Approved project files must be Markdown, GLSL, or TypeScript.");
+      throw new Error("Approved project files must be Markdown, GLSL, TypeScript, or a supported HTML demo.");
     }
     return file;
   });
@@ -84,8 +98,31 @@ function importNotebook(root) {
 
   const tiddlers = files.map((file) => {
     const title = titleFor(file);
-    const markdown = path.extname(file) === ".md";
     const source = fs.readFileSync(file, "utf8");
+    if (path.extname(file) === ".html") {
+      const demo = interactiveDemos[title];
+      if (!demo) {
+        throw new Error(`HTML project file is not a supported interactive demo: ${title}`);
+      }
+      const embeddedSource = source.replace(
+        /<a href="(?:\.{1,2}\/)[^"]*">([\s\S]*?)<\/a>/g,
+        "$1"
+      );
+      const embeddedData = Buffer.from(embeddedSource, "utf8").toString("base64");
+      return {
+        title,
+        type: "text/vnd.tiddlywiki",
+        tags: "[[Interactive Demo]] [[Reference]]",
+        "source-path": title,
+        text: `! ${demo.title}\n\n${demo.description}\n\n` +
+          `<iframe title="${demo.title}" sandbox="allow-scripts" ` +
+          `style="width: 100%; height: ${demo.height}px; border: 0; border-radius: 12px;" ` +
+          `src="data:text/html;base64,${embeddedData}"></iframe>\n\n` +
+          `Open the related guide: ${demo.guide}\n`
+      };
+    }
+
+    const markdown = path.extname(file) === ".md";
     const language = path.extname(file) === ".glsl" ? "glsl" : "typescript";
     const longestRun = Math.max(2, ...Array.from(
       source.matchAll(/`+/g), (match) => match[0].length
@@ -103,6 +140,7 @@ function importNotebook(root) {
   });
 
   for (const [category, title] of [
+    ["Interactive Demo", "Interactive Demos Index"],
     ["G-Buffer", "G-Buffer Index"],
     ["Materials", "Materials Index"],
     ["Procedural Mesh", "Procedural Mesh Index"]
@@ -127,7 +165,7 @@ if (require.main === module) {
   const tiddlers = importNotebook(root);
   const output = path.join(root, "notebook", "tiddlers", "generated-project.json");
   fs.writeFileSync(output, `${JSON.stringify(tiddlers, null, 2)}\n`, "utf8");
-  console.log(`Imported ${tiddlers.length - 3} approved project files and 3 indexes.`);
+  console.log(`Imported ${tiddlers.length - 4} approved project files and 4 indexes.`);
 }
 
 module.exports = { importNotebook, approvedFile };

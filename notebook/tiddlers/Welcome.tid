@@ -18,6 +18,7 @@ Explore the project's explanations, glossary, reusable code snippets, and shader
 * [[G-buffer examples|G-Buffer Index]] - depth, normals, world-position reconstruction, and deferred lighting.
 * [[Material examples|Materials Index]] - Fresnel reflection, PBR, and parallax occlusion mapping.
 * [[Procedural geometry|Procedural Mesh Index]] - mesh construction and instanced vertex transforms.
+* [[Interactive demos|Interactive Demos Index]] - explore axes/UV mapping and the animated ripple effect.
 
 !! Guides
 

@@ -4,6 +4,8 @@
     "GLOSSARY.md",
     "CODE_SNIPPETS.md",
     "COORDINATE_CONVENTIONS.md",
+    "docs/coordinate-demo.html",
+    "interactive/interact_5/wave-demo.html",
     "g_buffer/gbuffer_1/frag.glsl",
     "g_buffer/gbuffer_1/vert.glsl",
     "g_buffer/gbuffer_2/frag.glsl",
