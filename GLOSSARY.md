@@ -59,6 +59,12 @@ A rendering approach that separates geometry capture from lighting. A geometry p
 
 **Pass relationship:** `G-buffer = geometry(position, normal, albedo, depth)`; `finalColor = lighting(G-buffer, lights, camera)`.
 
+### Deformation
+A position-dependent change to a shape, such as a taper or twist. The
+[transform lessons](./transforms/README.md) apply these changes to vertices;
+triangles between them approximate the continuous deformation. Normals may
+need a deformation-aware transform for correct lighting.
+
 ### Depth buffer
 A per-pixel buffer used to determine which surfaces are in front of others. The shaders also copy depth into a color texture for later sampling. Under the conventional perspective projection used here, depth is non-linear with distance ([`gbuffer_2/frag.glsl`](./g_buffer/gbuffer_2/frag.glsl), [`gbuffer_4/frag.glsl`](./g_buffer/gbuffer_4/frag.glsl)).
 
@@ -190,6 +196,14 @@ Mesh data in which an index array refers to entries in vertex-attribute arrays. 
 ### Instancing
 Drawing multiple copies of a mesh while supplying per-instance data, such as a transform matrix, rather than duplicating all of its vertex data. The procedural-mesh vertex shader receives four matrix columns and per-instance identifiers ([`procedural_mesh_7/vert.glsl`](./procedural_mesh_basics/procedural_mesh_7/vert.glsl)).
 
+## J
+
+### Jacobian
+The matrix of partial derivatives of a position-dependent transformation. It
+describes the local change to tangent directions. Where it is invertible, its
+inverse transpose transforms normals for the continuous deformation; the
+[taper lesson](./transforms/transform_8/CODE_EXPLANATION.md) gives an example.
+
 ## L
 
 ### Lambertian diffuse
@@ -238,7 +252,7 @@ A vector perpendicular to a surface, used to determine how the surface faces lig
 ### Normal matrix
 The inverse transpose of the linear part of an object's transform. It correctly transforms normals when the object has non-uniform scaling or shear. Some project vertex shaders use the simpler upper-left `mat3(world)` transform, which is suitable for rotation and uniform scale but not every transform.
 
-**Formula:** `n_world = normalize((M₃×₃⁻¹)ᵀ n_local)`, where `M₃×₃` is the linear (upper-left 3×3) part of the world transform.
+**Formula:** `n_world = normalize((M₃×₃⁻¹)ᵀ n_local)`, where `M₃×₃` is the linear (upper-left 3×3) part of the world transform and is invertible. A position-dependent deformation additionally needs its local Jacobian's inverse transpose.
 
 ## P
 
@@ -260,6 +274,12 @@ the host must choose point drawing and supply any particle management.
 Dividing a homogeneous position's `xyz` components by its `w` component. It converts clip coordinates into normalized coordinates and is also used after inverse view-projection to recover a Cartesian world-space position ([`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl)).
 
 **Formula:** For homogeneous `p = (x, y, z, w)`, the Cartesian point is `(x/w, y/w, z/w)`, provided `w ≠ 0`.
+
+### Pivot
+The point around which a rotation or scale is applied. The transformation
+lessons operate around the local origin. To rotate around a different pivot
+with column vectors, apply `T(pivot) * R * T(-pivot) * position`
+([transformation guide](./transforms/README.md)).
 
 ### Phase, amplitude, and frequency
 The phase is the input to a periodic function such as sine; amplitude scales
@@ -305,6 +325,15 @@ A direction obtained by reflecting the view ray around a surface normal. The ref
 
 **Formula:** `R = I - 2(N·I)N`; for the camera-to-surface incident direction `I = -V`, this becomes `R = reflect(-V, N)`.
 
+### Rotation
+A transform that turns points and directions around an axis while preserving
+distances. GLSL trigonometric functions use radians; matrix constructor
+values are filled by columns. The [transform 2 Y rotation](./transforms/transform_2/vert.glsl)
+uses `x' = cos(a)*x - sin(a)*z` and `z' = sin(a)*x + cos(a)*z`. In a
+conventional right-handed basis it rotates by `-a`; apparent screen direction
+depends on the camera. See the [transformation guide](./transforms/README.md)
+for X and illustrative Z rotations.
+
 ### Roughness
 A material parameter describing the spread of microscopic surface orientations. Lower roughness produces sharper, narrower specular highlights; higher roughness produces broader, blurrier highlights ([`light_7/frag.glsl`](./materials/light_7/frag.glsl)).
 
@@ -316,6 +345,12 @@ A material parameter describing the spread of microscopic surface orientations. 
 A shader uniform representing a texture resource. GLSL's `texture` function samples the resource at specified UV coordinates ([`procedural_mesh_7/frag.glsl`](./procedural_mesh_basics/procedural_mesh_7/frag.glsl)).
 
 **Sampling notation:** `color = texture(sampler, uv)`, where `uv` selects the texture location.
+
+### Scale
+A transform that multiplies coordinates along one or more axes. The
+[animated scale shader](./transforms/transform_6/vert.glsl) uses the uniform
+factor `1 + 0.5*sin(u_time)`, ranging from `0.5` to `1.5`. Zero scale
+collapses an axis; a negative scale reflects it and can affect face winding.
 
 ### Scanline
 A horizontal band used as a visual effect. The
@@ -343,6 +378,12 @@ A method for combining masking/shadowing terms for both the view and light direc
 **Project formula:** `G = G₁(N·V, r) G₁(N·L, r)`, where `G₁(x,r) = x / (x(1-k)+k)` and `k = (r+1)²/8`.
 
 ## T
+
+### Taper
+A deformation that changes a cross-section's size along an axis. The
+[taper shader](./transforms/transform_8/vert.glsl) uses local Z to scale Y
+about `y = 0`: `y' = y * (1 + 0.95*z)`. Its factor is zero near
+`z = -1.0526` and negative below that; it is not clamped.
 
 ### Tangent space
 A coordinate frame attached to a surface, commonly made from tangent, bitangent, and normal directions. It is useful for interpreting height maps or normal maps independently of the object's world orientation. The POM shader converts the view direction into this frame ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
@@ -372,10 +413,22 @@ A transform that compresses HDR lighting values into a displayable LDR range. Th
 
 **Project formula:** `C_tone = C_hdr / (C_hdr + 1)`, applied component-wise for nonnegative `C_hdr`.
 
+### Transformation order
+The order in which scale, rotation, translation, and camera matrices act on a
+position. With the column-vector convention used in the
+[transform guide](./transforms/README.md), `T * R * S * p` applies scale first,
+then rotation, then translation. Changing the order generally changes the result.
+
 ### Triangle winding
 The clockwise or counterclockwise order of triangle vertices as seen from one side. It controls front-face determination and can be reversed to render the opposite side ([`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts)).
 
 **Visual:** See the CCW and CW triangle diagrams under [Face winding](#face-winding). Reversing `(0, 1, 2)` to `(0, 2, 1)` reverses the winding.
+
+### Twist
+A deformation that rotates cross-sections by an angle that varies along an
+axis. The [twist shader](./transforms/transform_10/vert.glsl) rotates XZ by
+`position.y * u_time`. Its normal rotation is approximate: it does not account
+for the angle's variation with height.
 
 ## U
 

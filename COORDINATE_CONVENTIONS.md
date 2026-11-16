@@ -78,6 +78,44 @@ Lighting vectors and normals must be in compatible spaces. The examples use
 `mat3(world) * normal` (or its instance equivalent); non-uniform scaling generally
 requires an inverse-transpose normal matrix instead.
 
+### Rotation axes and signs in the transform lessons
+
+The [transformation lessons](./transforms/README.md) rotate local positions
+before applying the world and camera transforms. Their GLSL matrix constructors
+are filled by **columns**, and positions are multiplied as column vectors.
+For a positive 90-degree shader angle:
+
+| Rotation | Unchanged axis | Example local direction |
+| --- | --- | --- |
+| [Y](./transforms/transform_2/vert.glsl) | Y | `+X` becomes `+Z` |
+| [X](./transforms/transform_4/vert.glsl) | X | `+Y` becomes `-Z` |
+| Z | Z | `+X` becomes `-Y` in the guide's illustrative matrix |
+
+These X and Y matrices, and the guide's illustrative Z matrix, correspond to
+active right-handed rotations by **negative** shader angle in a conventional
+right-handed XYZ basis. The Z matrix is a reference example, not a separate
+lesson shader. This algebraic comparison does not establish a global camera
+handedness or a clockwise screen direction; the view determines what you see.
+
+The [transformation explorer](./transforms/transform-demo.html) compares
+local-space shapes under the X/Y matrices. Its orthographic view and identity
+world transform are teaching choices, not renderer defaults.
+
+### Position-dependent local deformations
+
+[Tapering](./transforms/transform_8/CODE_EXPLANATION.md) uses local Z to
+scale local Y about `y = 0`: `y' = y * (1 + 0.95 * z)`. X and Z remain
+unchanged. For a cube spanning `z = -1` to `1`, the factor changes from
+`0.05` to `1.95`; a different local Z range changes the result. The factor
+is zero at approximately `z = -1.0526`, and negative below it.
+
+[Twisting](./transforms/transform_10/CODE_EXPLANATION.md) rotates local XZ
+by an angle dependent on local Y and time. It preserves each vertex's distance
+from local Y but does not rotate the entire mesh rigidly. For both effects,
+transform the deformed local point to world space for lighting as well as to
+clip space for display. Surface normals also need to account for the local
+deformation; lesson 10's normal rotation alone is an approximation.
+
 ## 3. UV coordinates are a separate 2D system
 
 Each vertex has two UV values in addition to its three position values.

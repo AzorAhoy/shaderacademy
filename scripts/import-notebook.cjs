@@ -109,7 +109,17 @@ function importNotebook(root) {
         (_, label, target) => convertImage(label, target, file)
       ).replace(
         /(?<!!)\[([^\]\n]+)\]\(([^)\s]+)\)/g,
-        (_, label, target) => `[${label}](${convertLink(target, file)})`
+        (_, label, target) => {
+          if (titleFor(file) === "CODE_SNIPPETS.md" &&
+              /^#snippet-(?:[1-9]\d*|checklist)$/.test(target)) {
+            const text = label.replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return `<$button class="tc-btn-invisible tc-tiddlylink">` +
+              `<$action-sendmessage $message="tm-scroll" selector="${target}"/>` +
+              `${text}</$button>`;
+          }
+          return `[${label}](${convertLink(target, file)})`;
+        }
       );
     }).join("\n");
   }

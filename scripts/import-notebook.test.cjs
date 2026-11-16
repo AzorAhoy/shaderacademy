@@ -38,6 +38,14 @@ test("rewrites repository links and retains fenced code", () => {
   assert.deepEqual(codeBlocks(guide), codeBlocks(original));
 });
 
+test("snippet topic index scrolls to every anchored section in the notebook", () => {
+  const guide = byTitle.get("CODE_SNIPPETS.md").text;
+  for (const id of [...Array.from({ length: 23 }, (_, index) => String(index + 1)), "checklist"]) {
+    assert.ok(guide.includes(`<a id="snippet-${id}"></a>`), `Missing anchor ${id}`);
+    assert.ok(guide.includes(`$message="tm-scroll" selector="#snippet-${id}"`), `Missing link ${id}`);
+  }
+});
+
 test("wraps shader source verbatim in a fenced code block", () => {
   const title = "g_buffer/gbuffer_5/frag.glsl";
   const original = fs.readFileSync(
@@ -82,6 +90,20 @@ test("transform guides link to their imported vertex and fragment shaders", () =
       const title = `${base}/${shader}`;
       assert.ok(byTitle.has(title), `Missing ${title}`);
       assert.ok(guide.text.includes(`](#${encodeURIComponent(title)})`));
+    }
+  }
+});
+
+test("reference guides link to the transformation lessons and explorer", () => {
+  for (const [guide, targets] of [
+    ["CODE_SNIPPETS.md", ["transforms/README.md", "transforms/transform_8/CODE_EXPLANATION.md"]],
+    ["COORDINATE_CONVENTIONS.md", ["transforms/transform-demo.html", "transforms/transform_10/CODE_EXPLANATION.md"]],
+    ["GLOSSARY.md", ["transforms/README.md", "transforms/transform_8/vert.glsl"]]
+  ]) {
+    const text = byTitle.get(guide).text;
+    for (const target of targets) {
+      assert.ok(byTitle.has(target), `Missing ${target}`);
+      assert.ok(text.includes(`](#${encodeURIComponent(target)})`), `${guide} does not link to ${target}`);
     }
   }
 });

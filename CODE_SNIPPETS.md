@@ -5,8 +5,58 @@ This guide collects reusable patterns found in the project's GLSL shaders and pr
 For definitions and formulas for the terms used below, see the project [glossary](./GLOSSARY.md).
 For axis directions, mesh UV layouts, and an interactive demonstration, see
 [3D axes and UV coordinate conventions](./COORDINATE_CONVENTIONS.md).
+For transformation math and a visual explorer, see the
+[transformation guide](./transforms/README.md).
 In the notebook, links to examples not listed in its public-content allowlist
 remain repository-relative; open those files in the repository instead.
+
+## Browse by topic
+
+### GLSL basics and textures
+
+- [1. Common GLSL built-in functions](#snippet-1)
+- [4. Sampling a 2D texture](#snippet-4)
+
+### Transformations and deformation
+
+- [2. Standard vertex transformation](#snippet-2)
+- [3. Instanced vertex transformation](#snippet-3)
+- [20. Rotation matrices and a local pivot](#snippet-20)
+- [23. Scale geometry around a local pivot](#snippet-23)
+- [21. Taper over a local coordinate range](#snippet-21)
+- [22. Twist along a local axis](#snippet-22)
+
+### G-buffer and depth
+
+- [5. Writing multiple render targets](#snippet-5)
+- [6. Encoding and decoding normals](#snippet-6)
+- [7. Reconstructing world position from depth](#snippet-7)
+
+### Lighting and color
+
+- [8. Lambert diffuse point-light contribution](#snippet-8)
+- [9. Schlick Fresnel and reflection blending](#snippet-9)
+- [10. PBR Cook-Torrance specular term](#snippet-10)
+- [11. Reusable Cook-Torrance helper functions](#snippet-11)
+- [12. Tone mapping and gamma correction](#snippet-12)
+
+### Texture and screen effects
+
+- [13. POM height sampling and filtered color lookup](#snippet-13)
+- [15. Mouse-centered ripple and falloff](#snippet-15)
+- [16. Animated screen-space scanlines](#snippet-16)
+- [18. Red-channel threshold transition](#snippet-18)
+
+### Particles and procedural geometry
+
+- [17. Deterministic particle targets and animation](#snippet-17)
+- [14. Procedural indexed quad construction](#snippet-14)
+- [19. Lathe surface and profile normal](#snippet-19)
+
+Finish with the [general integration checklist](#snippet-checklist). Snippet
+numbers remain unchanged so existing references are easy to recognize.
+
+<a id="snippet-1"></a>
 
 ## 1. Common GLSL built-in functions
 
@@ -189,6 +239,8 @@ This additional example creates a derivative-scaled transition around `uv.x = 0.
 
 These functions belong in fragment shaders in this GLSL ES version. Evaluate them in uniform control flow; derivatives inside non-uniform branches or after divergent exits may be undefined. The parallax example uses UV derivatives for `textureGrad` ([`parallax_2/frag.glsl`](./materials/parallax_2/frag.glsl)).
 
+<a id="snippet-2"></a>
+
 ## 2. Standard vertex transformation
 
 **Use for:** Transforming a mesh's local-space vertex into world and clip space. This pattern appears in several material and G-buffer vertex shaders, including [`gbuffer_1/vert.glsl`](./g_buffer/gbuffer_1/vert.glsl) and [`light_7/vert.glsl`](./materials/light_7/vert.glsl).
@@ -214,6 +266,8 @@ gl_Position = worldViewProjection * vec4(position, 1.0);
 - The `worldViewProjection` matrix should apply the world, view, and projection transforms in the multiplication order expected by the renderer.
 - `mat3(world) * normal` is suitable for rotations and uniform scales. For non-uniform scale or shear, use an inverse-transpose normal matrix.
 - The fragment shader interpolates varyings across a triangle.
+
+<a id="snippet-3"></a>
 
 ## 3. Instanced vertex transformation
 
@@ -244,6 +298,8 @@ void main() {
 
 The renderer must bind all four matrix columns consistently. A transposed or incorrectly ordered matrix will move or distort instances.
 
+<a id="snippet-4"></a>
+
 ## 4. Sampling a 2D texture
 
 **Use for:** Applying a texture to a mesh. The simplest form appears in [`procedural_mesh_7/frag.glsl`](./procedural_mesh_basics/procedural_mesh_7/frag.glsl).
@@ -266,6 +322,8 @@ void main() {
 4. Sample with `texture` at each fragment's interpolated UV.
 
 Texture filtering, wrapping, mipmaps, and color-space interpretation are configured by the application and texture setup; they are not specified by this code.
+
+<a id="snippet-5"></a>
 
 ## 5. Writing multiple render targets (MRT)
 
@@ -291,6 +349,8 @@ void main() {
 
 `gl_FragCoord.z` is the current fragment's depth value, conventionally in `[0, 1]`, and is generally non-linear under perspective projection. A color attachment storing this value is distinct from the depth attachment used for depth testing. If alpha is also used as a coverage marker, define and preserve a consistent clear/write convention.
 
+<a id="snippet-6"></a>
+
 ## 6. Encoding and decoding normals
 
 **Use for:** Saving signed normal components in a normalized color texture and recovering them later. Encoding appears in [`gbuffer_3/frag.glsl`](./g_buffer/gbuffer_3/frag.glsl); decoding is shown in [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl).
@@ -311,6 +371,8 @@ vec3 normalDecoded = normalize(normalEncoded * 2.0 - 1.0);
 4. Normalize again to compensate for texture precision and interpolation.
 
 Both passes must agree on the normal's coordinate space. If lighting uses world-space positions and light positions, decode or transform the normal into world space as well.
+
+<a id="snippet-7"></a>
 
 ## 7. Reconstructing world position from depth
 
@@ -336,6 +398,8 @@ vec3 position = worldPos.xyz / worldPos.w;
 
 This version assumes the conventional OpenGL/WebGL mapping from depth `[0, 1]` to NDC z `[-1, 1]`. It also assumes the UV orientation matches the render target and the inverse matrix was built with the same camera state. Viewport size, coordinate origin, depth convention, and matrix order must remain consistent.
 
+<a id="snippet-8"></a>
+
 ## 8. Lambert diffuse point-light contribution
 
 **Use for:** A simple diffuse response from a point light with distance falloff. The project uses this pattern in [`gbuffer_5/frag.glsl`](./g_buffer/gbuffer_5/frag.glsl), and a related dot-product form in [`light_6/frag.glsl`](./materials/light_6/frag.glsl).
@@ -360,6 +424,8 @@ color += albedo * lightColor * diffuse * attenuation;
 
 The example assumes `dist` is nonzero. If a light can coincide with a surface point, guard the normalization and attenuation math against division by zero.
 
+<a id="snippet-9"></a>
+
 ## 9. Schlick Fresnel and blending a reflection
 
 **Use for:** Increasing reflectance at grazing angles and blending a base color with an environment reflection. This pattern appears in [`light_6/frag.glsl`](./materials/light_6/frag.glsl).
@@ -383,6 +449,8 @@ vec3 result = mix(base, reflection, fresnel);
 
 This project uses a procedural `skyColor` function rather than a full environment map. This simple scalar form is suitable for the reflection example; PBR materials commonly use vector-valued `F0`.
 
+<a id="snippet-10"></a>
+
 ## 10. PBR Cook-Torrance specular term
 
 **Use for:** A microfacet specular calculation in a physically based material shader. The project's implementation is in [`light_7/frag.glsl`](./materials/light_7/frag.glsl).
@@ -405,6 +473,8 @@ vec3 specular =
 5. Combine the specular response with diffuse and light radiance according to the material model.
 
 This is not a complete lighting model by itself: it needs valid inputs, light radiance, a diffuse term, and an energy-conserving treatment of metallic and dielectric materials.
+
+<a id="snippet-11"></a>
 
 ## 11. Reusable Cook-Torrance helper functions
 
@@ -446,6 +516,8 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 
 The geometry function shown uses the direct-light Schlick-GGX convention in the project. Other rendering workflows may use a different roughness remapping or geometry approximation, so keep the convention consistent with the chosen BRDF.
 
+<a id="snippet-12"></a>
+
 ## 12. Tone mapping and gamma correction
 
 **Use for:** Converting nonnegative HDR lighting results into a displayable range, then applying the project's simple gamma adjustment. This is based on [`light_7/frag.glsl`](./materials/light_7/frag.glsl).
@@ -471,6 +543,8 @@ void main() {
 4. Write the resulting display color.
 
 This is the simple tone-map and gamma sequence used by the project, not a universal color-management pipeline. If the renderer or output target already performs an sRGB conversion, avoid applying a second gamma transform.
+
+<a id="snippet-13"></a>
 
 ## 13. POM height sampling and filtered color lookup
 
@@ -498,6 +572,8 @@ vec3 color = textureGrad(
 
 The thresholds in `smoothstep` are content-specific and shape how the height range is interpreted. POM adds per-fragment work; layer count and height scale trade visual detail against performance and stability.
 
+<a id="snippet-14"></a>
+
 ## 14. Procedural indexed quad construction
 
 **Use for:** Building a quad and appending it into a larger indexed mesh. The project's cube builder uses this pattern in [`scene.ts`](./procedural_mesh_basics/procedural_mesh_7/scene.ts).
@@ -522,6 +598,8 @@ quad.indices.forEach((index) => {
 4. Add that offset to each local index so it refers to the appended quad.
 
 If vertices are duplicated for flat face normals or per-face UVs, account for that duplication when calculating offsets. If adding another vertex attribute such as color, append corresponding values as well.
+
+<a id="snippet-15"></a>
 
 ## 15. Mouse-centered ripple and falloff
 
@@ -548,6 +626,8 @@ texture still contributes 30%. UV-space circles can look elliptical on a
 non-square surface, and out-of-range texture lookup behavior depends on
 sampler wrapping. See the [ripple walkthrough](./interactive/interact_5/CODE_EXPLANATION.md).
 
+<a id="snippet-16"></a>
+
 ## 16. Animated screen-space scanlines
 
 **Use for:** Darkening a texture with moving horizontal bands, as in
@@ -569,6 +649,8 @@ approximately 15.9 complete cycles across a unit height, not 100 lines. The
 brightness multiplier ranges from `0.8` to `1.0`. In the standard lower-left
 window coordinate convention the bands move toward decreasing Y. Texture alpha
 is discarded. See the [scanline walkthrough](./uv/uv_4/CODE_EXPLANATION.md).
+
+<a id="snippet-17"></a>
 
 ## 17. Deterministic particle targets and animation
 
@@ -602,6 +684,8 @@ particles. The example's [fragment shader](./particles/particle_2/frag.glsl)
 derives binary RGB channels from the animated world position, so colors can
 change during movement. Use a separate stable seed if fixed colors are needed.
 
+<a id="snippet-18"></a>
+
 ## 18. Red-channel threshold transition
 
 **Use for:** Hiding pixels according to the sampled red channel, as in
@@ -621,6 +705,8 @@ changed, and transparent pixels do not disappear visually unless the host uses
 appropriate blending or another transparency strategy. Progress is not
 clamped. The mask comes from the same texture's red channel, not a separate
 noise map; it is a color-driven threshold rather than a crossfade.
+
+<a id="snippet-19"></a>
 
 ## 19. Lathe surface and profile normal
 
@@ -649,6 +735,243 @@ then connect adjacent rows with indexed triangles. The derivative estimates
 `dr/dy`, tilting the normal along the profile rather than pointing it purely
 outward. The example builds the side surface, not top or bottom caps. See the
 [lathe explanation](./procedural_mesh_basics/lathe_1/CODE_EXPLANATION.md).
+
+<a id="snippet-20"></a>
+
+## 20. Rotation matrices and a local pivot
+
+**Use for:** Rotating geometry about a local-space axis with an adjustable
+angle and pivot. These `mat4` helpers follow the explicit matrix style of
+the [X](./transforms/transform_4/vert.glsl) and
+[Y](./transforms/transform_2/vert.glsl) rotation lessons. Define the helpers
+you need outside `main`.
+
+### X, Y, and Z axes
+
+```glsl
+mat4 getRotationMatrixX(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0,   c,  -s, 0.0,
+        0.0,   s,   c, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+}
+
+mat4 getRotationMatrixY(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat4(
+          c, 0.0,   s, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+         -s, 0.0,   c, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+}
+
+mat4 getRotationMatrixZ(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat4(
+          c,  -s, 0.0, 0.0,
+          s,   c, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+}
+```
+
+GLSL fills these constructors by **columns**. The X and Y matrices match the
+lesson shaders; Z follows the same sign convention but is not a separate
+lesson shader. In a conventional right-handed XYZ basis, a positive `angle`
+here corresponds to an active right-handed rotation by **negative** `angle`.
+Negate it for the conventional positive direction. The camera determines the
+apparent screen direction.
+
+### Optional: arbitrary axis
+
+For an axis other than X, Y, or Z, this matrix uses the same sign convention.
+The host must supply a **nonzero** local-space `rotationAxis`:
+
+```glsl
+mat4 getRotationMatrixAxis(vec3 unitAxis, float angle) {
+    float x = unitAxis.x;
+    float y = unitAxis.y;
+    float z = unitAxis.z;
+    float c = cos(angle);
+    float s = -sin(angle);
+    float t = 1.0 - c;
+    return mat4(
+        t*x*x+c,   t*x*y+s*z, t*x*z-s*y, 0.0,
+        t*x*y-s*z, t*y*y+c,   t*y*z+s*x, 0.0,
+        t*x*z+s*y, t*y*z-s*x, t*z*z+c,   0.0,
+        0.0,       0.0,       0.0,       1.0
+    );
+}
+```
+
+Call it with `getRotationMatrixAxis(normalize(rotationAxis), angle)`. The
+input must be unit length; never normalize a zero axis.
+
+### Apply a rotation and keep lighting consistent
+
+Supply `angle` in radians and `pivot` in local coordinates. For example, in
+`main`, select the Y helper; replace it with another helper as needed:
+
+```glsl
+mat4 rotation = getRotationMatrixY(angle);
+vec4 localPos = rotation * vec4(position - pivot, 1.0);
+localPos.xyz += pivot;
+vec3 localNormal = normalize(mat3(rotation) * normal);
+vPosition = (world * localPos).xyz;
+vNormal = normalize(worldNormalMatrix * localNormal);
+gl_Position = worldViewProjection * localPos;
+```
+
+The pivot affects positions, not normals. Set it to `vec3(0.0)` to rotate
+around the local origin. Supply consistent `world` and
+`worldViewProjection` matrices. `worldNormalMatrix` is the inverse
+transpose of the world's linear 3-by-3 part; supply it from the host for an
+invertible world transform. For animation, calculate the angle from an
+initial angle, angular speed, and elapsed time.
+
+See the [transformation guide](./transforms/README.md) for worked examples
+and coordinate conventions.
+
+<a id="snippet-21"></a>
+
+## 21. Taper over a local coordinate range
+
+**Use for:** Changing a cross-section's Y size along local Z with configurable
+end scales and a configurable Y center:
+
+```glsl
+float t = clamp((position.z - zStart) / (zEnd - zStart), 0.0, 1.0);
+float factor = mix(scaleAtStart, scaleAtEnd, t);
+vec3 taperedPosition = position;
+taperedPosition.y = centerY + (position.y - centerY) * factor;
+```
+
+Supply `zStart`, `zEnd`, `scaleAtStart`, `scaleAtEnd`, and `centerY` in local
+coordinates or units as appropriate. Require `zEnd > zStart`; otherwise the
+division is invalid or the intended range is reversed. At and beyond either
+endpoint, clamping holds the corresponding end scale; remove `clamp` only if
+extrapolation is intended. X and Z remain unchanged.
+
+For example, scales of `0.5` and `1.5` at the two ends give factor `1.0` at
+the midpoint. Choose positive end scales to avoid collapse or reflection over
+the clamped range. A zero factor makes the deformation singular; a negative
+factor flips the cross-section and can affect culling.
+
+Use the tapered position for both world-space lighting and clip-space output.
+For correct continuous-surface normals, account for the factor's spatial
+derivative with the deformation Jacobian and then apply the world normal
+transform. The clamped factor has a derivative discontinuity at the
+endpoints when the end scales differ. The
+[taper walkthrough](./transforms/transform_8/CODE_EXPLANATION.md) explains a
+specific unclamped example and its normal calculation.
+
+<a id="snippet-22"></a>
+
+## 22. Twist along a local axis
+
+**Use for:** Twisting XZ cross-sections around local Y with configurable base
+angle, reference height, and twist rate:
+
+```glsl
+float angle = baseAngle + twistPerUnit * (position.y - referenceY);
+float c = cos(angle);
+float s = sin(angle);
+vec3 twistedPosition = vec3(
+    position.x * c - position.z * s,
+    position.y,
+    position.x * s + position.z * c
+);
+```
+
+Supply `baseAngle` in radians, `twistPerUnit` in radians per local Y unit,
+and `referenceY` in local Y coordinates. At `referenceY` the angle is
+`baseAngle`; with `twistPerUnit = 0` the result is a rigid Y rotation. The
+host can animate these parameters, but this pattern does not require time.
+The sign matches the project's
+[twist example](./transforms/transform_9/vert.glsl), which is a negative-angle
+rotation under the conventional active right-handed rule.
+
+Each vertex retains its distance from the local Y axis. Triangles remain
+piecewise linear between transformed vertices, so subdivision affects the
+visible approximation. Use the deformed position for lighting and rendering.
+For a continuous surface, transform normals using the inverse transpose of the
+local deformation Jacobian followed by the world normal transform. Simply
+rotating each normal by its local angle, as in
+[lesson 10](./transforms/transform_10/CODE_EXPLANATION.md), omits the angle
+gradient and is generally approximate.
+
+<a id="snippet-23"></a>
+
+## 23. Scale geometry around a local pivot
+
+**Use for:** Resizing geometry uniformly or independently along each local
+axis. Supply the scale and pivot in the vertex shader; these are independent
+patterns, not code to paste together unchanged.
+
+### Uniform scale
+
+```glsl
+vec3 scaledPosition = pivot + (position - pivot) * uniformScale;
+```
+
+`pivot` is a local-space point and `uniformScale` is a dimensionless factor
+applied equally to X, Y, and Z. For example, with pivot `(1, 0, 0)`, position
+`(2, 1, -1)`, and scale `2`, the result is `(3, 2, -2)`. Set `pivot` to
+`vec3(0.0)` to scale around the local origin.
+
+### Non-uniform scale and lighting
+
+```glsl
+vec3 scaledPosition = pivot + (position - pivot) * scaleFactors;
+vec3 scaledNormal = normal / scaleFactors;
+vec4 localPos = vec4(scaledPosition, 1.0);
+vPosition = (world * localPos).xyz;
+vNormal = normalize(worldNormalMatrix * scaledNormal);
+gl_Position = worldViewProjection * localPos;
+```
+
+`scaleFactors` is a `vec3` of dimensionless X, Y, and Z factors; all three
+components must be nonzero for the normal division. The pivot affects
+positions but not normals. For example, position `(2, 1, -1)`, pivot
+`(1, 0, 0)`, and factors `(2, 0.5, 1.5)` produce `(3, 0.5, -1.5)`.
+
+The component-wise division applies the inverse transpose of the local
+diagonal scale to the normal. Supply `worldNormalMatrix` as the inverse
+transpose of the world's linear 3-by-3 part, and use an invertible world
+transform. `worldViewProjection` must include the same `world` matrix used
+for `vPosition`. With non-uniform scaling, multiplying the normal directly
+by `scaleFactors` generally does not preserve perpendicularity.
+
+A zero factor collapses an axis and has no ordinary inverse normal transform.
+Negative factors reflect axes; an odd number of negative factors reverses
+orientation and may require adjusting face culling. Choose the desired
+reflection and culling behavior explicitly.
+
+### Animated uniform scale
+
+```glsl
+float uniformScale = baseScale
+    + amplitude * sin(angularFrequency * elapsedTime);
+vec3 scaledPosition = pivot + (position - pivot) * uniformScale;
+```
+
+The host supplies `baseScale`, `amplitude`, `angularFrequency` in radians per
+time unit, and `elapsedTime` in matching units. To keep the scale strictly
+positive throughout the cycle, choose `baseScale > abs(amplitude)`. Use the
+same scaled position for lighting and rendering. The
+[animated scale lesson](./transforms/transform_6/CODE_EXPLANATION.md) shows a
+specific oscillation; its current shader calculates lighting position from the
+original vertex rather than the scaled one.
+
+<a id="snippet-checklist"></a>
 
 ## General integration checklist
 
