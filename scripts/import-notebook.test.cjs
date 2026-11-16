@@ -94,6 +94,23 @@ test("transform guides link to their imported vertex and fragment shaders", () =
   }
 });
 
+test("welcome groups transform lessons under learning paths", () => {
+  const welcome = fs.readFileSync(
+    path.join(root, "notebook", "tiddlers", "Welcome.tid"), "utf8"
+  ).replace(/\r\n/g, "\n");
+  const section = welcome.split("!! Learning paths\n")[1].split("\n!! ")[0];
+  assert.match(section, /\* Transform lessons/);
+  for (const title of [
+    "transforms/README.md",
+    "transforms/transform-demo.html",
+    ...Array.from({ length: 10 }, (_, index) =>
+      `transforms/transform_${index + 1}/CODE_EXPLANATION.md`)
+  ]) {
+    assert.ok(byTitle.has(title), `Missing ${title}`);
+    assert.ok(section.includes(`|${title}]]`), `Missing learning path link ${title}`);
+  }
+});
+
 test("reference guides link to the transformation lessons and explorer", () => {
   for (const [guide, targets] of [
     ["CODE_SNIPPETS.md", ["transforms/README.md", "transforms/transform_8/CODE_EXPLANATION.md"]],
