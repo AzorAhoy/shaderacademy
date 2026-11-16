@@ -26,6 +26,7 @@ Explore the project's explanations, glossary, reusable code snippets, and shader
 * [[Textured particles|particles/particle_5/CODE_EXPLANATION.md]] - sample and display texture color and alpha.
 * [[Distance-faded particles|particles/particle_6/CODE_EXPLANATION.md]] - fade texture alpha by distance from the world origin.
 * [[Animated scanlines|uv/uv_4/CODE_EXPLANATION.md]] - use screen-space coordinates and a sine wave to darken a texture.
+* [[UV-based height map|procedural_mountains/height_map_3/CODE_EXPLANATION.md]] - learn how UVs control displacement along local Z.
 
 !! Transform lessons
 

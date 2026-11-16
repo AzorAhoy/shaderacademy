@@ -352,6 +352,11 @@ A transform that multiplies coordinates along one or more axes. The
 factor `1 + 0.5*sin(u_time)`, ranging from `0.5` to `1.5`. Zero scale
 collapses an axis; a negative scale reflects it and can affect face winding.
 
+**Matrix form:** A scale `mat4` places the X, Y, and Z factors on its spatial
+diagonal and `1` in the homogeneous component. GLSL constructors are filled
+by columns. For a non-uniform scale, the normal transform uses the reciprocal
+of each nonzero factor.
+
 ### Scanline
 A horizontal band used as a visual effect. The
 [scanline shader](./uv/uv_4/frag.glsl) modulates texture brightness using a

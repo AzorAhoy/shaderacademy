@@ -118,6 +118,17 @@ test("scanline guide links to its imported shaders", () => {
   }
 });
 
+test("height-map guide links to its imported shaders", () => {
+  const base = "procedural_mountains/height_map_3";
+  const guide = byTitle.get(`${base}/CODE_EXPLANATION.md`);
+  assert.ok(guide);
+  for (const shader of ["vert.glsl", "frag.glsl"]) {
+    const title = `${base}/${shader}`;
+    assert.ok(byTitle.has(title));
+    assert.ok(guide.text.includes(`](#${encodeURIComponent(title)})`));
+  }
+});
+
 test("updated references link to approved examples and embed the lathe illustration", () => {
   const snippets = byTitle.get("CODE_SNIPPETS.md").text;
   const glossary = byTitle.get("GLOSSARY.md").text;

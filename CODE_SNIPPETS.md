@@ -919,32 +919,49 @@ patterns, not code to paste together unchanged.
 ### Uniform scale
 
 ```glsl
-vec3 scaledPosition = pivot + (position - pivot) * uniformScale;
+mat4 scale = mat4(
+    uniformScale, 0.0,          0.0,          0.0,
+    0.0,          uniformScale, 0.0,          0.0,
+    0.0,          0.0,          uniformScale, 0.0,
+    0.0,          0.0,          0.0,          1.0
+);
+vec4 localPos = scale * vec4(position - pivot, 1.0);
+localPos.xyz += pivot;
 ```
 
 `pivot` is a local-space point and `uniformScale` is a dimensionless factor
 applied equally to X, Y, and Z. For example, with pivot `(1, 0, 0)`, position
 `(2, 1, -1)`, and scale `2`, the result is `(3, 2, -2)`. Set `pivot` to
-`vec3(0.0)` to scale around the local origin.
+`vec3(0.0)` to scale around the local origin. GLSL fills a `mat4` constructor
+by columns; the diagonal sets the three scale factors and preserves the
+homogeneous `w` component.
 
 ### Non-uniform scale and lighting
 
 ```glsl
-vec3 scaledPosition = pivot + (position - pivot) * scaleFactors;
-vec3 scaledNormal = normal / scaleFactors;
-vec4 localPos = vec4(scaledPosition, 1.0);
+mat4 scale = mat4(
+    scaleFactors.x, 0.0,            0.0,            0.0,
+    0.0,            scaleFactors.y, 0.0,            0.0,
+    0.0,            0.0,            scaleFactors.z, 0.0,
+    0.0,            0.0,            0.0,            1.0
+);
+vec4 localPos = scale * vec4(position - pivot, 1.0);
+localPos.xyz += pivot;
+mat3 localNormalMatrix = transpose(inverse(mat3(scale)));
+vec3 scaledNormal = localNormalMatrix * normal;
 vPosition = (world * localPos).xyz;
 vNormal = normalize(worldNormalMatrix * scaledNormal);
 gl_Position = worldViewProjection * localPos;
 ```
 
 `scaleFactors` is a `vec3` of dimensionless X, Y, and Z factors; all three
-components must be nonzero for the normal division. The pivot affects
+components must be nonzero for the inverse. The pivot affects
 positions but not normals. For example, position `(2, 1, -1)`, pivot
 `(1, 0, 0)`, and factors `(2, 0.5, 1.5)` produce `(3, 0.5, -1.5)`.
 
-The component-wise division applies the inverse transpose of the local
-diagonal scale to the normal. Supply `worldNormalMatrix` as the inverse
+`localNormalMatrix` is the inverse transpose of the local diagonal scale.
+For this diagonal matrix, `normal / scaleFactors` gives the same direction
+without computing a matrix inverse. Supply `worldNormalMatrix` as the inverse
 transpose of the world's linear 3-by-3 part, and use an invertible world
 transform. `worldViewProjection` must include the same `world` matrix used
 for `vPosition`. With non-uniform scaling, multiplying the normal directly
@@ -960,7 +977,14 @@ reflection and culling behavior explicitly.
 ```glsl
 float uniformScale = baseScale
     + amplitude * sin(angularFrequency * elapsedTime);
-vec3 scaledPosition = pivot + (position - pivot) * uniformScale;
+mat4 scale = mat4(
+    uniformScale, 0.0,          0.0,          0.0,
+    0.0,          uniformScale, 0.0,          0.0,
+    0.0,          0.0,          uniformScale, 0.0,
+    0.0,          0.0,          0.0,          1.0
+);
+vec4 localPos = scale * vec4(position - pivot, 1.0);
+localPos.xyz += pivot;
 ```
 
 The host supplies `baseScale`, `amplitude`, `angularFrequency` in radians per

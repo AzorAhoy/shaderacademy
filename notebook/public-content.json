@@ -89,7 +89,10 @@
     "procedural_mesh_basics/procedural_mesh_7/CODE_EXPLANATION.md",
     "procedural_mesh_basics/procedural_mesh_7/frag.glsl",
     "procedural_mesh_basics/procedural_mesh_7/scene.ts",
-    "procedural_mesh_basics/procedural_mesh_7/vert.glsl"
+    "procedural_mesh_basics/procedural_mesh_7/vert.glsl",
+    "procedural_mountains/height_map_3/CODE_EXPLANATION.md",
+    "procedural_mountains/height_map_3/frag.glsl",
+    "procedural_mountains/height_map_3/vert.glsl"
   ],
   "notebookFiles": [
     {
