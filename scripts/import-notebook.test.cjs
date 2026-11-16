@@ -63,6 +63,16 @@ test("particle guides link to their imported shaders and each other", () => {
   ));
 });
 
+test("scanline guide links to its imported shaders", () => {
+  const guide = byTitle.get("uv/uv_4/CODE_EXPLANATION.md");
+  assert.ok(guide);
+  for (const shader of ["vert.glsl", "frag.glsl"]) {
+    const title = `uv/uv_4/${shader}`;
+    assert.ok(byTitle.has(title));
+    assert.ok(guide.text.includes(`](#${encodeURIComponent(title)})`));
+  }
+});
+
 test("imports approved interactive demos as sandboxed, embedded notebook pages", () => {
   const coordinateDemo = byTitle.get("docs/coordinate-demo.html");
   const rippleDemo = byTitle.get("interactive/interact_5/wave-demo.html");
