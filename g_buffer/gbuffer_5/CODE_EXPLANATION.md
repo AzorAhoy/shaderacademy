@@ -1,12 +1,14 @@
 # Step-by-Step Explanation of `frag.glsl`
 
-This folder contains a fragment shader for a deferred-lighting pass. It reads surface information stored in G-buffer textures, reconstructs the world-space position of each visible pixel, applies ambient and point-light diffuse illumination, and writes the shaded color.
+This folder contains a [fragment shader](./frag.glsl) for a deferred-lighting pass. It reads surface information stored in G-buffer textures, reconstructs the world-space position of each visible pixel, applies ambient and point-light diffuse illumination, and writes the shaded color.
 
 The shader expects the preceding geometry pass to provide:
 
 - `gBufferAlbedo`: the surface's base color, with alpha zero marking pixels where no geometry was drawn.
 - `gBufferDepth`: the depth-buffer value for each pixel.
 - `gBufferNormal`: the surface normal encoded into the `[0, 1]` color range.
+
+The earlier examples illustrate parts of this data flow, but they do not by themselves provide the complete albedo, normal, and depth geometry pass required here. The application must supply compatible textures and the full-screen vertex shader.
 
 ## 1. Select the shader language and precision
 

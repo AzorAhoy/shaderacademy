@@ -10,6 +10,11 @@ in a browser; it needs no dependencies or server. The notebook also includes
 sandboxed interactive previews of this explorer and the
 [ripple effect demo](./interactive/interact_5/wave-demo.html).
 
+## Rendering concepts
+
+See [How a G-buffer Works](./g_buffer/README.md) for a step-by-step overview of
+geometry buffers, deferred lighting, and the five G-buffer examples.
+
 ## TiddlyWiki notebook
 
 The [notebook](./notebook/) combines the project guides, glossary, reusable snippets,

@@ -4,7 +4,7 @@ This document explains the vertex and fragment shaders in this G-buffer 4 exampl
 
 ## 1. G-buffer 4 vertex shader
 
-File: [`g_buffer/gbuffer_4/vert.glsl`](./g_buffer/gbuffer_4/vert.glsl)
+File: [`vert.glsl`](./vert.glsl)
 
 The vertex shader runs once for each mesh vertex. It prepares each vertex's position and attributes for rasterization and passes data to the fragment shader.
 
@@ -88,7 +88,7 @@ gl_Position = worldViewProjection * vec4(position, 1.0);
 
 ## 2. G-buffer 4 fragment shader
 
-File: [`g_buffer/gbuffer_4/frag.glsl`](./g_buffer/gbuffer_4/frag.glsl)
+File: [`frag.glsl`](./frag.glsl)
 
 The fragment shader runs for each rasterized fragment. It writes the visible color and also stores depth in a second color attachment. It then reconstructs a world-space position from the fragment's screen coordinates and depth.
 
@@ -111,7 +111,7 @@ uniform float u_near;
 uniform float u_far;
 ```
 
-- `u_resolution` is the width and height, in pixels, of the viewport being rendered. It must match the dimensions used to produce `gl_FragCoord`.
+- `u_resolution` is the width and height, in pixels, of the viewport being rendered. The calculation also assumes the viewport starts at framebuffer coordinate `(0, 0)`; for a nonzero viewport origin, subtract that origin from `gl_FragCoord.xy` first.
 - `u_inverseViewProjection` is the inverse of the camera's view-projection transform. Multiplying a clip-space position by it unprojects that position back into world space.
 - `u_near` and `u_far` are declared but unused in this shader. The current reconstruction uses the depth-buffer value directly and does not linearize it using these planes.
 
@@ -141,7 +141,7 @@ This is the depth value written to a color attachment; it is separate from the d
 vec2 uv = gl_FragCoord.xy / u_resolution;
 ```
 
-`gl_FragCoord.xy` gives the fragment's pixel coordinates. Dividing by the viewport width and height maps them to normalized screen coordinates, approximately `[0, 1]`. The viewport dimensions must be correct or the reconstructed horizontal and vertical positions will be distorted.
+`gl_FragCoord.xy` gives the fragment's window coordinates. With a viewport origin of `(0, 0)`, dividing by its width and height maps them to normalized screen coordinates, approximately `[0, 1]`. For a viewport with another origin, subtract that origin before division. Incorrect dimensions or origin distort the reconstructed horizontal and vertical positions.
 
 ### Step 6: Convert UV coordinates to normalized device coordinates
 
