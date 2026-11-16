@@ -20,6 +20,8 @@ Explore the project's explanations, glossary, reusable code snippets, and shader
 * [[Procedural geometry|Procedural Mesh Index]] - mesh construction and instanced vertex transforms.
 * [[Interactive demos|Interactive Demos Index]] - explore axes/UV mapping and the animated ripple effect.
 * [[Interactive ripple shader explanation|interactive/interact_5/CODE_EXPLANATION.md]] - detailed walkthrough of the shader and wave math.
+* [[Particle positions and colors|particles/particle_1/CODE_EXPLANATION.md]] - generate static pseudo-random offsets and colors.
+* [[Animated particles|particles/particle_2/CODE_EXPLANATION.md]] - move particles toward pseudo-random targets over time.
 
 !! Guides
 

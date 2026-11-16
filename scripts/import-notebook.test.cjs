@@ -48,6 +48,21 @@ test("wraps shader source verbatim in a fenced code block", () => {
   assert.match(byTitle.get("G-Buffer Index").text, /<li><\$link/);
 });
 
+test("particle guides link to their imported shaders and each other", () => {
+  for (const particle of ["particle_1", "particle_2"]) {
+    const guide = byTitle.get(`particles/${particle}/CODE_EXPLANATION.md`);
+    assert.ok(guide);
+    for (const shader of ["vert.glsl", "frag.glsl"]) {
+      const title = `particles/${particle}/${shader}`;
+      assert.ok(byTitle.has(title));
+      assert.ok(guide.text.includes(`](#${encodeURIComponent(title)})`));
+    }
+  }
+  assert.ok(byTitle.get("particles/particle_2/CODE_EXPLANATION.md").text.includes(
+    "](#particles%2Fparticle_1%2FCODE_EXPLANATION.md)"
+  ));
+});
+
 test("imports approved interactive demos as sandboxed, embedded notebook pages", () => {
   const coordinateDemo = byTitle.get("docs/coordinate-demo.html");
   const rippleDemo = byTitle.get("interactive/interact_5/wave-demo.html");
