@@ -56,6 +56,7 @@ test("publishes approved content without unapproved files, notes, or system tidd
     assert.ok(html.includes('"title":"Interactive Demos Index"'));
     assert.ok(html.includes('"title":"docs/coordinate-demo.html"'));
     assert.ok(html.includes('"title":"interactive/interact_5/wave-demo.html"'));
+    assert.ok(html.includes('"title":"transforms/transform-demo.html"'));
     assert.ok(html.includes("sandbox"));
     assert.ok(html.includes("data:text/html;base64,"));
 

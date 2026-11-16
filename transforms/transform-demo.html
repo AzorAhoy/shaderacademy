@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Shader Academy: Transformation Explorer</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101725; color: #e7edf7; }
+    body { max-width: 1100px; margin: auto; padding: 24px; }
+    h1 { margin-bottom: 8px; }
+    p { line-height: 1.5; }
+    a { color: #91c9ff; }
+    .panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    section { min-width: 0; padding: 16px; background: #182337; border: 1px solid #35445c; border-radius: 12px; }
+    h2 { margin: 0 0 10px; font-size: 1.1rem; }
+    canvas { display: block; width: 100%; aspect-ratio: 520 / 430; background: #101725; border-radius: 8px; }
+    .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 18px 0; }
+    label { display: block; }
+    input[type="range"], select { width: 100%; margin-top: 8px; }
+    select, button { font: inherit; padding: 8px; color: inherit; background: #263650; border: 1px solid #7e94b4; border-radius: 6px; }
+    button { cursor: pointer; }
+    input, select, button { accent-color: #ffda62; }
+    :focus-visible { outline: 3px solid #ffda62; outline-offset: 3px; }
+    output { font-variant-numeric: tabular-nums; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .readout { padding: 12px; border-left: 3px solid #ffda62; background: #101725; }
+    .note { color: #bbcade; font-size: 0.9rem; }
+    .original { color: #b6c2d3; }
+    .transformed { color: #56ddf5; }
+    .shader-normal { color: #ffda62; }
+    .exact-normal { color: #ff92bd; }
+    @media (max-width: 760px) {
+      body { padding: 14px; }
+      .panels, .controls { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Transformation Explorer</h1>
+  <p>Choose a lesson and compare the same local-space cube before and after its
+    transform. Use the time slider for animated lessons and rotate the view to
+    inspect the shape. Both panels use the same fixed scale and view.</p>
+
+  <div class="controls">
+    <label>Lesson
+      <select id="lesson">
+        <option value="1">1. Double scale</option>
+        <option value="2">2. Animated Y rotation</option>
+        <option value="3">3. Fixed Y rotation</option>
+        <option value="4">4. Animated X rotation</option>
+        <option value="5">5. Half scale</option>
+        <option value="6">6. Animated scaling</option>
+        <option value="7">7. Rotation and scale</option>
+        <option value="8">8. Taper along Z</option>
+        <option value="9">9. Twist</option>
+        <option value="10">10. Twist and normals</option>
+      </select>
+    </label>
+    <label>Time: <output id="timeValue" for="time"></output>
+      <input id="time" type="range" min="0" max="8" step="0.01" value="1">
+    </label>
+    <label>View angle: <output id="viewValue" for="view"></output>
+      <input id="view" type="range" min="-180" max="180" step="1" value="35">
+    </label>
+    <div class="actions">
+      <button id="play" type="button" aria-pressed="false">Play animation</button>
+      <button id="reset" type="button">Reset controls</button>
+    </div>
+  </div>
+
+  <div class="panels">
+    <section>
+      <h2>Before: original cube</h2>
+      <canvas id="before" width="520" height="430" role="img"
+        aria-label="Original subdivided cube before the local transformation">
+        Original cube before transformation.
+      </canvas>
+      <p class="note"><span class="original">Gray grid:</span> the original cube,
+        from -1 to 1 on each local axis. The white dot marks a sample surface point.</p>
+    </section>
+    <section>
+      <h2>After: transformed cube</h2>
+      <canvas id="after" width="520" height="430" role="img"
+        aria-label="Subdivided cube after the selected local transformation">
+        Cube after the selected transformation.
+      </canvas>
+      <p class="note"><span class="transformed">Cyan grid:</span> transformed
+        positions. The white dot follows the same sample point.</p>
+    </section>
+  </div>
+
+  <p class="readout"><strong id="formula"></strong><br><span id="sample"></span></p>
+  <p id="normalNote" class="note" hidden><span class="shader-normal">Yellow:</span>
+    the shader's normal at the marked point. <span class="exact-normal">Pink:</span>
+    the continuous twist's normal there. The arrows illustrate a single normal;
+    lesson 10 rotates it but omits the height-dependent correction.</p>
+  <p class="note">This Canvas illustration evaluates the lessons' local position
+    formulas on a subdivided cube. It uses an orthographic view and identity
+    world transform; it does not compile the GLSL, show actual lighting, or
+    reproduce a host renderer. The reference normal assumes a smooth continuous
+    twist, while the drawn mesh consists of straight segments. Playback loops
+    time from 8 to 0 for convenience; the shaders themselves do not loop it.</p>
+  <p><a href="./README.md">Read the transformation overview</a></p>
+
+  <script>
+    "use strict";
+    const before = document.getElementById("before");
+    const after = document.getElementById("after");
+    const beforeContext = before.getContext("2d");
+    const afterContext = after.getContext("2d");
+    const formula = document.getElementById("formula");
+    if (!beforeContext || !afterContext) {
+      formula.textContent = "Canvas 2D is unavailable. Please open this demo in a supported browser.";
+      throw new Error("The transformation explorer requires Canvas 2D.");
+    }
+
+    const lesson = document.getElementById("lesson");
+    const time = document.getElementById("time");
+    const view = document.getElementById("view");
+    const play = document.getElementById("play");
+    const reset = document.getElementById("reset");
+    const timeValue = document.getElementById("timeValue");
+    const viewValue = document.getElementById("viewValue");
+    const sample = document.getElementById("sample");
+    const normalNote = document.getElementById("normalNote");
+    const samplePoint = [1, 0.35, 0.6];
+    const lessonFormulas = [
+      "",
+      "Scale: p' = 2 p",
+      "Y rotation: angle = time × π / 4",
+      "Y rotation: angle = π / 4",
+      "X rotation: angle = time × π / 4",
+      "Scale: p' = 0.5 p",
+      "Scale: s = 1 + 0.5 sin(time)",
+      "Rotate about X by 3π / 4, then scale by 1.5",
+      "Taper: y' = y (1 + 0.95 z)",
+      "Twist: angle = y × time; normal is not twisted",
+      "Twist: angle = y × time; normal is rotated approximately"
+    ];
+
+    const rotateY = ([x, y, z], angle) => {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      return [c * x - s * z, y, s * x + c * z];
+    };
+    const rotateX = ([x, y, z], angle) => {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      return [x, c * y + s * z, -s * y + c * z];
+    };
+    const scale = (point, factor) => point.map((value) => value * factor);
+
+    function transform(point, selected, currentTime) {
+      switch (selected) {
+        case 1: return scale(point, 2);
+        case 2: return rotateY(point, currentTime * Math.PI / 4);
+        case 3: return rotateY(point, Math.PI / 4);
+        case 4: return rotateX(point, currentTime * Math.PI / 4);
+        case 5: return scale(point, 0.5);
+        case 6: return scale(point, 1 + 0.5 * Math.sin(currentTime));
+        case 7: return scale(rotateX(point, 3 * Math.PI / 4), 1.5);
+        case 8: return [point[0], point[1] * (1 + 0.95 * point[2]), point[2]];
+        case 9:
+        case 10: return rotateY(point, point[1] * currentTime);
+        default: throw new Error(`Unknown transformation lesson: ${selected}`);
+      }
+    }
+
+    function project([x, y, z], angle) {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      const horizontal = c * x - s * z;
+      const depth = s * x + c * z;
+      const vertical = Math.cos(0.48) * y + Math.sin(0.48) * depth;
+      return [260 + horizontal * 70, 230 - vertical * 70];
+    }
+
+    function drawLine(context, start, end, angle, color, width = 1) {
+      const a = project(start, angle);
+      const b = project(end, angle);
+      context.strokeStyle = color;
+      context.lineWidth = width;
+      context.beginPath();
+      context.moveTo(a[0], a[1]);
+      context.lineTo(b[0], b[1]);
+      context.stroke();
+    }
+
+    function drawAxes(context, angle) {
+      for (const [axis, label, color] of [
+        [[1.35, 0, 0], "X", "#ec7d77"],
+        [[0, 1.35, 0], "Y", "#91d990"],
+        [[0, 0, 1.35], "Z", "#91b6ff"]
+      ]) {
+        drawLine(context, [0, 0, 0], axis, angle, color, 1.5);
+        const [x, y] = project(axis, angle);
+        context.fillStyle = color;
+        context.font = "bold 15px system-ui";
+        context.fillText(label, x + 5, y - 5);
+      }
+    }
+
+    function drawMesh(context, angle, selected, currentTime, original) {
+      const divisions = 8;
+      const color = original ? "#aebcd1" : "#56ddf5";
+      context.strokeStyle = color;
+      context.lineWidth = 1.1;
+      context.beginPath();
+      for (let fixedAxis = 0; fixedAxis < 3; fixedAxis++) {
+        const axes = [0, 1, 2].filter((axis) => axis !== fixedAxis);
+        for (const side of [-1, 1]) {
+          for (let grid = 0; grid <= divisions; grid++) {
+            for (let direction = 0; direction < 2; direction++) {
+              for (let step = 0; step <= divisions; step++) {
+                const point = [0, 0, 0];
+                point[fixedAxis] = side;
+                point[axes[direction]] = -1 + 2 * grid / divisions;
+                point[axes[1 - direction]] = -1 + 2 * step / divisions;
+                const moved = original ? point : transform(point, selected, currentTime);
+                const [x, y] = project(moved, angle);
+                if (step === 0) context.moveTo(x, y);
+                else context.lineTo(x, y);
+              }
+            }
+          }
+        }
+      }
+      context.stroke();
+    }
+
+    function drawMarker(context, point, angle) {
+      const [x, y] = project(point, angle);
+      context.beginPath();
+      context.arc(x, y, 4, 0, 2 * Math.PI);
+      context.fillStyle = "#ffffff";
+      context.fill();
+    }
+
+    function drawArrow(context, origin, normal, angle, color) {
+      const magnitude = Math.hypot(...normal);
+      const tip = origin.map((value, i) => value + 0.8 * normal[i] / magnitude);
+      const [x1, y1] = project(origin, angle);
+      const [x2, y2] = project(tip, angle);
+      const direction = Math.atan2(y2 - y1, x2 - x1);
+      drawLine(context, origin, tip, angle, color, 3);
+      context.fillStyle = color;
+      context.beginPath();
+      context.moveTo(x2, y2);
+      context.lineTo(x2 - 10 * Math.cos(direction - 0.4), y2 - 10 * Math.sin(direction - 0.4));
+      context.lineTo(x2 - 10 * Math.cos(direction + 0.4), y2 - 10 * Math.sin(direction + 0.4));
+      context.closePath();
+      context.fill();
+    }
+
+    function draw(currentTime) {
+      const selected = Number(lesson.value);
+      const angle = Number(view.value) * Math.PI / 180;
+      const moved = transform(samplePoint, selected, currentTime);
+      for (const context of [beforeContext, afterContext]) {
+        context.clearRect(0, 0, 520, 430);
+        drawAxes(context, angle);
+      }
+      drawMesh(beforeContext, angle, selected, currentTime, true);
+      drawMesh(afterContext, angle, selected, currentTime, false);
+      drawMarker(beforeContext, samplePoint, angle);
+      drawMarker(afterContext, moved, angle);
+      const showNormals = selected === 9 || selected === 10;
+      normalNote.hidden = !showNormals;
+      if (showNormals) {
+        const twist = samplePoint[1] * currentTime;
+        const shaderNormal = selected === 9 ? [1, 0, 0] : [Math.cos(twist), 0, Math.sin(twist)];
+        const continuousNormal = [Math.cos(twist), currentTime * samplePoint[2], Math.sin(twist)];
+        drawArrow(afterContext, moved, continuousNormal, angle, "#ff92bd");
+        drawArrow(afterContext, moved, shaderNormal, angle, "#ffda62");
+      }
+      formula.textContent = lessonFormulas[selected];
+      sample.textContent = `Marked point: (${samplePoint.join(", ")}) → (${moved.map((value) => value.toFixed(2)).join(", ")})`;
+      timeValue.textContent = currentTime.toFixed(2);
+      viewValue.textContent = `${view.value}°`;
+    }
+
+    let playing = false;
+    let clock = Number(time.value);
+    let previousFrame = 0;
+    let scheduled = false;
+    function schedule() {
+      if (!scheduled && !document.hidden) {
+        scheduled = true;
+        requestAnimationFrame(frame);
+      }
+    }
+    function frame(timestamp) {
+      scheduled = false;
+      if (playing && previousFrame) {
+        clock = (clock + Math.min((timestamp - previousFrame) / 1000, 0.1)) % 8;
+        time.value = String(clock);
+      }
+      previousFrame = playing ? timestamp : 0;
+      draw(clock);
+      if (playing) schedule();
+    }
+    for (const control of [lesson, view]) {
+      control.addEventListener("input", schedule);
+    }
+    time.addEventListener("input", () => {
+      clock = Number(time.value);
+      previousFrame = 0;
+      schedule();
+    });
+    play.addEventListener("click", () => {
+      playing = !playing;
+      previousFrame = 0;
+      play.textContent = playing ? "Pause animation" : "Play animation";
+      play.setAttribute("aria-pressed", String(playing));
+      schedule();
+    });
+    reset.addEventListener("click", () => {
+      lesson.value = "1";
+      time.value = "1";
+      clock = 1;
+      view.value = "35";
+      playing = false;
+      previousFrame = 0;
+      play.textContent = "Play animation";
+      play.setAttribute("aria-pressed", "false");
+      schedule();
+    });
+    document.addEventListener("visibilitychange", () => {
+      previousFrame = 0;
+      if (!document.hidden) schedule();
+    });
+    schedule();
+  </script>
+</body>
+</html>

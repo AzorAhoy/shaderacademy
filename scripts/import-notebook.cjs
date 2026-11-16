@@ -15,6 +15,12 @@ const interactiveDemos = {
     description: "Move the ripple center, adjust the wave controls, and compare the shader's wave and falloff views.",
     height: 2150,
     guide: "[[Step-by-step ripple shader explanation|interactive/interact_5/CODE_EXPLANATION.md]]"
+  },
+  "transforms/transform-demo.html": {
+    title: "Transformation Explorer",
+    description: "Compare local-space transforms, animate them, and inspect twist normals.",
+    height: 1650,
+    guide: "[[Understanding 3D transformations|transforms/README.md]]"
   }
 };
 

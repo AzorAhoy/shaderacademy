@@ -72,6 +72,20 @@ test("particle guides link to their imported shaders and each other", () => {
   }
 });
 
+test("transform guides link to their imported vertex and fragment shaders", () => {
+  for (let lesson = 1; lesson <= 10; lesson++) {
+    const base = `transforms/transform_${lesson}`;
+    const guide = byTitle.get(`${base}/CODE_EXPLANATION.md`);
+    assert.ok(guide, `Missing ${base} guide`);
+    assert.ok(guide.text.includes("](#transforms%2Ftransform-demo.html)"));
+    for (const shader of ["vert.glsl", "frag.glsl"]) {
+      const title = `${base}/${shader}`;
+      assert.ok(byTitle.has(title), `Missing ${title}`);
+      assert.ok(guide.text.includes(`](#${encodeURIComponent(title)})`));
+    }
+  }
+});
+
 test("scanline guide links to its imported shaders", () => {
   const guide = byTitle.get("uv/uv_4/CODE_EXPLANATION.md");
   assert.ok(guide);
@@ -106,9 +120,12 @@ test("updated references link to approved examples and embed the lathe illustrat
 test("imports approved interactive demos as sandboxed, embedded notebook pages", () => {
   const coordinateDemo = byTitle.get("docs/coordinate-demo.html");
   const rippleDemo = byTitle.get("interactive/interact_5/wave-demo.html");
+  const transformDemo = byTitle.get("transforms/transform-demo.html");
   assert.ok(coordinateDemo);
   assert.ok(rippleDemo);
-  for (const demo of [coordinateDemo, rippleDemo]) {
+  assert.ok(transformDemo);
+  assert.ok(byTitle.get("transforms/README.md").text.includes("](#transforms%2Ftransform-demo.html)"));
+  for (const demo of [coordinateDemo, rippleDemo, transformDemo]) {
     assert.equal(demo.type, "text/vnd.tiddlywiki");
     assert.match(demo.tags, /\[\[Interactive Demo\]\]/);
     assert.match(demo.text, /sandbox="allow-scripts"/);
@@ -116,9 +133,11 @@ test("imports approved interactive demos as sandboxed, embedded notebook pages",
   }
   assert.match(coordinateDemo.text, /Axes & UV Explorer/);
   assert.match(rippleDemo.text, /Interactive Ripple Explorer/);
+  assert.match(transformDemo.text, /Transformation Explorer/);
   for (const [demo, marker] of [
     [coordinateDemo, 'id="uv"'],
-    [rippleDemo, 'id="surface"']
+    [rippleDemo, 'id="surface"'],
+    [transformDemo, 'id="after"']
   ]) {
     const match = demo.text.match(/src="data:text\/html;base64,([A-Za-z0-9+/=]+)"/);
     assert.ok(match);
