@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Shader Academy: Axes and UV Explorer</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101725; color: #e7edf7; }
+    body { max-width: 1200px; margin: auto; padding: 24px; }
+    h1 { margin-bottom: 8px; }
+    p { line-height: 1.6; }
+    a { color: #91c9ff; }
+    .panels { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+    section { background: #182337; border: 1px solid #35445c; border-radius: 12px; padding: 18px; }
+    h2 { margin-top: 0; font-size: 1.15rem; }
+    canvas { display: block; width: 100%; background: #101725; border-radius: 8px; }
+    #uv { cursor: crosshair; touch-action: none; }
+    .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+    label { display: block; }
+    input[type="range"], select { width: 100%; margin-top: 8px; }
+    select, button { font: inherit; padding: 8px; color: inherit; background: #263650; border: 1px solid #7e94b4; border-radius: 6px; }
+    input, select, button, canvas { accent-color: #ffda62; }
+    :focus-visible { outline: 3px solid #ffda62; outline-offset: 4px; }
+    output { font-variant-numeric: tabular-nums; }
+    .readout { padding: 12px; border-left: 3px solid #ffda62; background: #101725; }
+    .note { color: #bbcade; font-size: 0.9rem; }
+    @media (max-width: 760px) { .panels, .controls { grid-template-columns: 1fr; } body { padding: 14px; } }
+  </style>
+</head>
+<body>
+  <h1>Axes &amp; UV Explorer</h1>
+  <p>Y is up. UVs belong to the surface, not the camera. Orbit the mesh, then
+    move the yellow UV point to see the connection.</p>
+  <div class="panels">
+    <section>
+      <h2>3D surface and world axes</h2>
+      <canvas id="scene" width="760" height="520" role="img" aria-label="Projected mesh with labeled X, Y, Z axes and a selected UV point">
+        Use the controls and coordinate readout below to explore the mesh.
+      </canvas>
+      <p class="note">X = red, Y = green, Z = blue. Right-handed demo camera;
+        axis arrows and the selected point are overlays, including on hidden surfaces.</p>
+    </section>
+    <section>
+      <h2>UV chart: U right, V up</h2>
+      <canvas id="uv" width="480" height="520" role="img" aria-label="UV checker chart; click to select coordinates, or use the U and V sliders">
+        U and V each run from 0 to 1. Use the sliders below.
+      </canvas>
+      <p class="note">Click/touch the chart or use the sliders. Warm cells mark
+        low sampled V; cool cells mark high sampled V.</p>
+    </section>
+  </div>
+  <div class="controls">
+    <label>Mesh
+      <select id="mesh">
+        <option value="cube">Cube: point on the +Z face</option>
+        <option value="lathe">Lathe: point around the curved surface</option>
+      </select>
+    </label>
+    <label>Checker repeats: <output id="repeatValue" for="repeat"></output>
+      <input id="repeat" type="range" min="1" max="6" step="1" value="2">
+    </label>
+    <label>Camera yaw: <output id="yawValue" for="yaw"></output>
+      <input id="yaw" type="range" min="-180" max="180" step="1" value="35">
+    </label>
+    <label>Camera elevation: <output id="pitchValue" for="pitch"></output>
+      <input id="pitch" type="range" min="-70" max="70" step="1" value="20">
+    </label>
+    <label>Selected U: <output id="uValue" for="u"></output>
+      <input id="u" type="range" min="0" max="1" step="0.001" value="0.25">
+    </label>
+    <label>Selected V: <output id="vValue" for="v"></output>
+      <input id="v" type="range" min="0" max="1" step="0.001" value="0.65">
+    </label>
+    <label><input id="flip" type="checkbox"> Flip sampled V (1 - V); keep mesh UVs unchanged</label>
+    <button id="reset" type="button">Reset explorer</button>
+  </div>
+  <p class="readout"><output id="coordinates" aria-live="polite"></output></p>
+  <p class="note">This dependency-free Canvas illustration uses the lesson mesh formulas,
+    not WebGL or the host renderer. Checkers are evaluated per small patch, so this is
+    an illustration of mapping, not texture filtering. Camera handedness and image-upload
+    orientation are not specified globally by the repository.</p>
+  <p><a href="../COORDINATE_CONVENTIONS.md">Read the coordinate conventions guide</a></p>
+  <script>
+    "use strict";
+    const scene = document.getElementById("scene");
+    const chart = document.getElementById("uv");
+    const ctx = scene.getContext("2d");
+    const uvCtx = chart.getContext("2d");
+    if (!ctx || !uvCtx) {
+      document.getElementById("coordinates").textContent =
+        "Canvas 2D is unavailable. Please open this demo in a browser with Canvas support.";
+      throw new Error("The coordinate explorer requires Canvas 2D.");
+    }
+    const controls = Object.fromEntries(
+      ["mesh", "repeat", "yaw", "pitch", "u", "v", "flip"].map(
+        (id) => [id, document.getElementById(id)]
+      )
+    );
+    const faces = [
+      [[-2,-2,2], [2,-2,2], [2,2,2], [-2,2,2]],
+      [[2,-2,-2], [-2,-2,-2], [-2,2,-2], [2,2,-2]],
+      [[2,-2,2], [2,-2,-2], [2,2,-2], [2,2,2]],
+      [[-2,-2,-2], [-2,-2,2], [-2,2,2], [-2,2,-2]],
+      [[-2,2,2], [2,2,2], [2,2,-2], [-2,2,-2]],
+      [[-2,-2,-2], [2,-2,-2], [2,-2,2], [-2,-2,2]]
+    ];
+    const chartBox = { x: 52, y: 58, size: 376 };
+    const number = (id) => Number(controls[id].value);
+    const radians = (degrees) => degrees * Math.PI / 180;
+    const radiusAt = (t) =>
+      1.4 + 2.4 * Math.sin(Math.PI * t * 0.9) + 0.6 * Math.sin(Math.PI * 3 * t);
+
+    function surfacePoint(u, v, face = 0) {
+      if (controls.mesh.value === "lathe") {
+        const angle = Math.PI / 4 + u * Math.PI * 2;
+        const radius = radiusAt(v);
+        return [radius * Math.cos(angle), (v - 0.5) * 11, radius * Math.sin(angle)];
+      }
+      const corners = faces[face];
+      return corners[0].map((_, axis) =>
+        corners[0][axis] * (1-u) * (1-v) + corners[1][axis] * u * (1-v) +
+        corners[2][axis] * u * v + corners[3][axis] * (1-u) * v
+      );
+    }
+
+    function project(point) {
+      const yaw = radians(number("yaw"));
+      const pitch = radians(number("pitch"));
+      const right = point[0] * Math.cos(yaw) - point[2] * Math.sin(yaw);
+      const back = point[0] * Math.sin(yaw) + point[2] * Math.cos(yaw);
+      const up = point[1] * Math.cos(pitch) - back * Math.sin(pitch);
+      const depth = point[1] * Math.sin(pitch) + back * Math.cos(pitch);
+      const scale = (controls.mesh.value === "lathe" ? 600 : 1000) / (20 - depth);
+      return { x: scene.width / 2 + right * scale, y: scene.height / 2 - up * scale, depth };
+    }
+
+    function checkerColor(u, v) {
+      const repeats = number("repeat");
+      const sampleV = controls.flip.checked ? 1 - v : v;
+      const light = (Math.floor(u * repeats * 4) + Math.floor(sampleV * repeats * 4)) % 2 === 0;
+      return sampleV < 0.5
+        ? (light ? "#f5bd7c" : "#905b3b")
+        : (light ? "#9fd4f5" : "#426384");
+    }
+
+    function path(context, points) {
+      context.beginPath();
+      points.forEach((point, index) =>
+        index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y)
+      );
+      context.closePath();
+    }
+
+    function dot(context, x, y) {
+      context.beginPath();
+      context.arc(x, y, 7, 0, Math.PI * 2);
+      context.fillStyle = "#ffdf42";
+      context.fill();
+      context.strokeStyle = "#101725";
+      context.lineWidth = 2;
+      context.stroke();
+    }
+
+    function drawScene() {
+      ctx.clearRect(0, 0, scene.width, scene.height);
+      const lathe = controls.mesh.value === "lathe";
+      const patches = [];
+      const columns = lathe ? 48 : 16;
+      const rows = lathe ? 40 : 16;
+      for (let face = 0; face < (lathe ? 1 : 6); face++) {
+        for (let row = 0; row < rows; row++) {
+          for (let column = 0; column < columns; column++) {
+            const u = column / columns;
+            const v = row / rows;
+            const points = [
+              surfacePoint(u, v, face), surfacePoint(u + 1/columns, v, face),
+              surfacePoint(u + 1/columns, v + 1/rows, face), surfacePoint(u, v + 1/rows, face)
+            ].map(project);
+            patches.push({
+              points,
+              depth: points.reduce((sum, point) => sum + point.depth, 0) / 4,
+              color: checkerColor(u + 0.5/columns, v + 0.5/rows)
+            });
+          }
+        }
+      }
+      patches.sort((a, b) => a.depth - b.depth);
+      for (const patch of patches) {
+        path(ctx, patch.points);
+        ctx.fillStyle = patch.color;
+        ctx.fill();
+        ctx.strokeStyle = patch.color;
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+      }
+      if (!lathe) {
+        ctx.strokeStyle = "#c6d9eb";
+        ctx.lineWidth = 1;
+        for (const face of faces) {
+          path(ctx, face.map(project));
+          ctx.stroke();
+        }
+      }
+      const origin = project([0, 0, 0]);
+      const length = lathe ? 6.4 : 3.8;
+      ctx.font = "bold 20px system-ui";
+      for (const [vector, color, label] of [
+        [[length,0,0], "#ff7777", "+X"],
+        [[0,length,0], "#71e5a0", "+Y (up)"],
+        [[0,0,length], "#7cb5ff", "+Z"]
+      ]) {
+        const end = project(vector);
+        const angle = Math.atan2(end.y - origin.y, end.x - origin.x);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(origin.x, origin.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        path(ctx, [
+          end,
+          { x: end.x - 12 * Math.cos(angle - 0.4), y: end.y - 12 * Math.sin(angle - 0.4) },
+          { x: end.x - 12 * Math.cos(angle + 0.4), y: end.y - 12 * Math.sin(angle + 0.4) }
+        ]);
+        ctx.fill();
+        ctx.fillText(label, end.x + 8, end.y - 8);
+      }
+      const selected = project(surfacePoint(number("u"), number("v")));
+      dot(ctx, selected.x, selected.y);
+      ctx.fillStyle = "#ffdf42";
+      ctx.font = "16px system-ui";
+      ctx.fillText("selected UV", selected.x + 12, selected.y + 20);
+    }
+
+    function drawChart() {
+      uvCtx.clearRect(0, 0, chart.width, chart.height);
+      const { x, y, size } = chartBox;
+      const cells = number("repeat") * 4;
+      for (let row = 0; row < cells; row++) {
+        for (let column = 0; column < cells; column++) {
+          uvCtx.fillStyle = checkerColor((column + 0.5) / cells, (row + 0.5) / cells);
+          uvCtx.fillRect(x + column * size/cells, y + size - (row+1) * size/cells,
+            size/cells + 0.5, size/cells + 0.5);
+        }
+      }
+      uvCtx.strokeStyle = "#e7edf7";
+      uvCtx.lineWidth = 2;
+      uvCtx.strokeRect(x, y, size, size);
+      uvCtx.fillStyle = "#e7edf7";
+      uvCtx.font = "17px system-ui";
+      uvCtx.fillText("(0, 1)", x, y - 14);
+      uvCtx.fillText("(1, 1)", x + size - 48, y - 14);
+      uvCtx.fillText("(0, 0)", x, y + size + 27);
+      uvCtx.fillText("(1, 0)", x + size - 48, y + size + 27);
+      uvCtx.fillText("U increases ->", x + 120, y + size + 62);
+      uvCtx.save();
+      uvCtx.translate(25, y + size - 105);
+      uvCtx.rotate(-Math.PI / 2);
+      uvCtx.fillText("V increases ->", 0, 0);
+      uvCtx.restore();
+      const px = x + number("u") * size;
+      const py = y + (1 - number("v")) * size;
+      uvCtx.strokeStyle = "#ffdf42";
+      uvCtx.setLineDash([5, 5]);
+      uvCtx.beginPath();
+      uvCtx.moveTo(px, y);
+      uvCtx.lineTo(px, y + size);
+      uvCtx.moveTo(x, py);
+      uvCtx.lineTo(x + size, py);
+      uvCtx.stroke();
+      uvCtx.setLineDash([]);
+      dot(uvCtx, px, py);
+    }
+
+    function render() {
+      for (const id of ["repeat", "yaw", "pitch", "u", "v"]) {
+        document.getElementById(`${id}Value`).value =
+          ["u", "v"].includes(id) ? number(id).toFixed(3) : controls[id].value;
+      }
+      const position = surfacePoint(number("u"), number("v"));
+      document.getElementById("coordinates").value =
+        `Mesh UV: (${number("u").toFixed(3)}, ${number("v").toFixed(3)}) | ` +
+        `Local XYZ: (${position.map((value) => value.toFixed(3)).join(", ")}) | ` +
+        `Sampled V before repeat: ${(controls.flip.checked ? 1-number("v") : number("v")).toFixed(3)}`;
+      drawScene();
+      drawChart();
+    }
+
+    function selectUV(event) {
+      const bounds = chart.getBoundingClientRect();
+      const x = (event.clientX - bounds.left) * chart.width / bounds.width;
+      const y = (event.clientY - bounds.top) * chart.height / bounds.height;
+      const clamp = (value) => Math.min(1, Math.max(0, value));
+      controls.u.value = clamp((x - chartBox.x) / chartBox.size);
+      controls.v.value = clamp(1 - (y - chartBox.y) / chartBox.size);
+      render();
+    }
+    chart.addEventListener("pointerdown", (event) => {
+      chart.setPointerCapture(event.pointerId);
+      selectUV(event);
+    });
+    chart.addEventListener("pointermove", (event) => {
+      if (chart.hasPointerCapture(event.pointerId)) selectUV(event);
+    });
+    for (const control of Object.values(controls)) control.addEventListener("input", render);
+    document.getElementById("reset").addEventListener("click", () => {
+      for (const [id, value] of Object.entries({
+        mesh: "cube", repeat: "2", yaw: "35", pitch: "20", u: "0.25", v: "0.65"
+      })) controls[id].value = value;
+      controls.flip.checked = false;
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>

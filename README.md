@@ -1,6 +1,14 @@
 "# shaderacademy" 
 FOR SELF-STUDY ONLY
 
+## Coordinate reference
+
+See [3D axes and UV coordinate conventions](./COORDINATE_CONVENTIONS.md) for
+Y-up geometry, per-face cube UVs, lathe unwrapping, and renderer-dependent settings.
+Open the [interactive axes and UV explorer](./docs/coordinate-demo.html) locally
+in a browser; it needs no dependencies or server. The standalone demo is not
+included in the published notebook.
+
 ## TiddlyWiki notebook
 
 The [notebook](./notebook/) combines the project guides, glossary, reusable snippets,

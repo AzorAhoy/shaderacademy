@@ -3,6 +3,7 @@
     "README.md",
     "GLOSSARY.md",
     "CODE_SNIPPETS.md",
+    "COORDINATE_CONVENTIONS.md",
     "g_buffer/gbuffer_1/frag.glsl",
     "g_buffer/gbuffer_1/vert.glsl",
     "g_buffer/gbuffer_2/frag.glsl",

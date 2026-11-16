@@ -3,6 +3,8 @@
 This guide collects reusable patterns found in the project's GLSL shaders and procedural-mesh code. Each example includes its purpose, how to use it, and important assumptions. Snippets are representative; adapt names and data sources to the shader and renderer that use them.
 
 For definitions and formulas for the terms used below, see the project [glossary](./GLOSSARY.md).
+For axis directions, mesh UV layouts, and an interactive demonstration, see
+[3D axes and UV coordinate conventions](./COORDINATE_CONVENTIONS.md).
 
 ## 1. Common GLSL built-in functions
 
